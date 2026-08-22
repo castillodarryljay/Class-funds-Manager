@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
-import { Shield, Users, FileText, CheckCircle2 } from "lucide-react";
+import { Shield, Users, FileText, CheckCircle2, Download } from "lucide-react";
 import { AppLogo } from "./AppLogo";
 
 export const LandingPage: React.FC = () => {
@@ -8,6 +8,41 @@ export const LandingPage: React.FC = () => {
   const [selectedRole, setSelectedRole] = useState<"treasurer" | "student">(() => {
     return (localStorage.getItem("preferred_login_role") as "treasurer" | "student") || "treasurer";
   });
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstalled, setIsInstalled] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    const handleAppInstalled = () => {
+      setIsInstalled(true);
+      setDeferredPrompt(null);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstall);
+    window.addEventListener("appinstalled", handleAppInstalled);
+
+    if (window.matchMedia("(display-mode: standalone)").matches) {
+      setIsInstalled(true);
+    }
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
+      window.removeEventListener("appinstalled", handleAppInstalled);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === "accepted") {
+      setDeferredPrompt(null);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-between" id="landing-page">
@@ -17,6 +52,16 @@ export const LandingPage: React.FC = () => {
           <AppLogo size="md" showText={true} subtitle="Financial Transparency" />
           
           <div className="flex items-center gap-2">
+            {deferredPrompt && !isInstalled && (
+              <button
+                onClick={handleInstallClick}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all"
+                title="Install ClassFund on your device"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Install App
+              </button>
+            )}
             <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-full border border-emerald-100">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
               Live Cloud Portal
