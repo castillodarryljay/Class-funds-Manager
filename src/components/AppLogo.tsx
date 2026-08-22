@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import logoImg from "../assets/logo.png";
+import React from "react";
+import { LOGO_BASE64 } from "../assets/logoBase64";
 
 interface AppLogoProps {
   className?: string;
@@ -16,8 +16,6 @@ export const AppLogo: React.FC<AppLogoProps> = ({
   subtitle,
   dark = false
 }) => {
-  const [imgSrc, setImgSrc] = useState<string>(logoImg || "/logo.png");
-
   const sizeMap = {
     xs: "h-6 w-6 min-w-6",
     sm: "h-8 w-8 min-w-8",
@@ -33,17 +31,9 @@ export const AppLogo: React.FC<AppLogoProps> = ({
     <div className={`flex items-center gap-3 ${className}`}>
       <div className="relative shrink-0 flex items-center justify-center">
         <img
-          src={imgSrc}
+          src={LOGO_BASE64}
           alt="ClassFund Manager Logo"
-          referrerPolicy="no-referrer"
           className={`${imgDimension} rounded-2xl object-contain drop-shadow-md transition-transform duration-200 hover:scale-105`}
-          onError={() => {
-            if (imgSrc !== "/logo.png") {
-              setImgSrc("/logo.png");
-            } else {
-              setImgSrc("/logo.jpg");
-            }
-          }}
         />
       </div>
 
