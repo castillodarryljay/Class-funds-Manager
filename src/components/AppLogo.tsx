@@ -31,9 +31,8 @@ export const AppLogo: React.FC<AppLogoProps> = ({
           src="/logo.png"
           alt="ClassFund Logo"
           referrerPolicy="no-referrer"
-          className={`${imgSize} rounded-xl object-cover shadow-sm ring-1 ring-black/5 bg-white`}
+          className={`${imgSize} rounded-xl object-contain drop-shadow-sm`}
           onError={(e) => {
-            // Fallback in case image format needs jpg
             (e.target as HTMLImageElement).src = "/logo.jpg";
           }}
         />
