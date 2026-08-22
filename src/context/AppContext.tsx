@@ -37,7 +37,7 @@ interface AppContextType {
   error: string | null;
   isSandbox: boolean;
   
-  signInGoogle: () => Promise<void>;
+  signInGoogle: (targetRole?: UserRole) => Promise<void>;
   signOutUser: () => Promise<void>;
   createProfile: (profile: Partial<UserProfile>) => Promise<void>;
   createClassroom: (classroomData: Partial<Classroom>) => Promise<Classroom | null>;
@@ -73,28 +73,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (firebaseUser) {
         setIsSandbox(false);
         try {
+          const selectedLandingRole = (localStorage.getItem("preferred_login_role") as UserRole) || "treasurer";
+          
           // Check if user has profile in Firestore
           const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
           if (userDoc.exists()) {
             const profile = userDoc.data() as UserProfile;
+            
+            // If profile doesn't have a role assigned yet, assign the role selected from the landing page
+            if (!profile.role) {
+              profile.role = selectedLandingRole;
+              await setDoc(doc(db, "users", firebaseUser.uid), { role: selectedLandingRole }, { merge: true });
+            }
+            
             setUser(profile);
             
-            // Fetch classroom if student
+            // Fetch classroom if student or treasurer
             if (profile.role === "student") {
               await fetchStudentClassroom(firebaseUser.uid);
             } else if (profile.role === "treasurer") {
               await fetchTreasurerClassrooms(firebaseUser.uid);
             }
           } else {
-            // No profile yet, create a partial profile to complete later
-            const tempProfile: UserProfile = {
+            // No profile yet, create profile directly assigned with the role chosen on landing page
+            const newProfile: UserProfile = {
               uid: firebaseUser.uid,
               name: firebaseUser.displayName || "New User",
               email: firebaseUser.email || "",
               photoURL: firebaseUser.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(firebaseUser.displayName || "NU")}`,
+              role: selectedLandingRole,
               createdAt: new Date().toISOString()
             };
-            setUser(tempProfile);
+            await setDoc(doc(db, "users", firebaseUser.uid), newProfile);
+            setUser(newProfile);
+            if (selectedLandingRole === "student") {
+              await fetchStudentClassroom(firebaseUser.uid);
+            } else {
+              await fetchTreasurerClassrooms(firebaseUser.uid);
+            }
           }
         } catch (err: any) {
           console.error("Error loading user profile:", err);
@@ -252,10 +268,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Google Sign In
-  const signInGoogle = async () => {
+  const signInGoogle = async (targetRole?: UserRole) => {
     setLoading(true);
     setError(null);
     try {
+      const assignedRole = targetRole || (localStorage.getItem("preferred_login_role") as UserRole) || "treasurer";
+      localStorage.setItem("preferred_login_role", assignedRole);
+
       const result = await signInWithPopup(auth, googleProvider);
       const firebaseUser = result.user;
       
@@ -263,21 +282,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
       if (userDoc.exists()) {
         const profile = userDoc.data() as UserProfile;
+        // Always assign the selected role from the landing page selection
+        profile.role = assignedRole;
+        await setDoc(doc(db, "users", firebaseUser.uid), { role: assignedRole }, { merge: true });
+        
         setUser(profile);
-        if (profile.role === "student") {
+        if (assignedRole === "student") {
           await fetchStudentClassroom(firebaseUser.uid);
         } else {
           await fetchTreasurerClassrooms(firebaseUser.uid);
         }
       } else {
-        const tempProfile: UserProfile = {
+        const newProfile: UserProfile = {
           uid: firebaseUser.uid,
           name: firebaseUser.displayName || "New User",
           email: firebaseUser.email || "",
           photoURL: firebaseUser.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(firebaseUser.displayName || "NU")}`,
+          role: assignedRole,
           createdAt: new Date().toISOString()
         };
-        setUser(tempProfile);
+        await setDoc(doc(db, "users", firebaseUser.uid), newProfile);
+        setUser(newProfile);
+        if (assignedRole === "student") {
+          await fetchStudentClassroom(firebaseUser.uid);
+        } else {
+          await fetchTreasurerClassrooms(firebaseUser.uid);
+        }
       }
     } catch (err: any) {
       console.error("Google login error:", err);
@@ -457,26 +487,76 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Join Classroom (Student)
   const joinClassroomByCode = async (inviteCode: string, studentProfile: Partial<UserProfile>) => {
-    if (!user) return false;
+    if (!user) {
+      setError("Please sign in or create an account first.");
+      return false;
+    }
     setLoading(true);
+    setError(null);
     try {
-      const cleanCode = inviteCode.trim().toUpperCase();
-      // Find classroom with active invite code
-      const q = query(
-        collection(db, "classrooms"), 
-        where("inviteCode", "==", cleanCode),
-        where("inviteStatus", "==", "active")
-      );
-      const querySnapshot = await getDocs(q);
+      const rawCode = inviteCode.trim();
+      const cleanCode = rawCode.toUpperCase();
       
-      if (querySnapshot.empty) {
+      let targetDoc: any = null;
+
+      // 1. Query by cleanCode
+      const q1 = query(
+        collection(db, "classrooms"), 
+        where("inviteCode", "==", cleanCode)
+      );
+      const snap1 = await getDocs(q1);
+      if (!snap1.empty) {
+        targetDoc = snap1.docs[0];
+      }
+
+      // 2. Query by rawCode
+      if (!targetDoc && rawCode !== cleanCode) {
+        const q2 = query(
+          collection(db, "classrooms"), 
+          where("inviteCode", "==", rawCode)
+        );
+        const snap2 = await getDocs(q2);
+        if (!snap2.empty) {
+          targetDoc = snap2.docs[0];
+        }
+      }
+
+      // 3. Check doc ID match
+      if (!targetDoc) {
+        try {
+          const docRef = doc(db, "classrooms", rawCode);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            targetDoc = docSnap;
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
+
+      // 4. Fallback search all classrooms
+      if (!targetDoc) {
+        const allSnap = await getDocs(collection(db, "classrooms"));
+        for (const d of allSnap.docs) {
+          const data = d.data();
+          if (
+            (data.inviteCode && data.inviteCode.toString().trim().toUpperCase() === cleanCode) ||
+            d.id.toUpperCase() === cleanCode
+          ) {
+            targetDoc = d;
+            break;
+          }
+        }
+      }
+      
+      if (!targetDoc) {
         setError("Invalid or deactivated invitation code.");
         return false;
       }
 
       const targetClassroom = { 
-        id: querySnapshot.docs[0].id, 
-        ...querySnapshot.docs[0].data() 
+        id: targetDoc.id, 
+        ...targetDoc.data() 
       } as Classroom;
 
       // Update student profile with fields
@@ -513,10 +593,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
 
       setClassroom(targetClassroom);
+      setError(null);
       return true;
     } catch (err: any) {
       console.error("Join classroom error:", err);
-      setError("Failed to join classroom: " + err.message);
+      setError("Failed to join classroom: " + (err.message || "Please check connection."));
       return false;
     } finally {
       setLoading(false);

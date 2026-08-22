@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { AppProvider, useApp } from "./context/AppContext";
 import { LandingPage } from "./components/LandingPage";
-import { RoleSelection } from "./components/RoleSelection";
-import { ProfileForm } from "./components/ProfileForm";
 import { ClassroomCreate } from "./components/ClassroomCreate";
 import { JoinClassroom } from "./components/JoinClassroom";
 import { TreasurerDashboard } from "./components/TreasurerDashboard";
@@ -15,7 +13,6 @@ function AppContent() {
   
   // Custom navigation/routing state
   const [urlJoinCode, setUrlJoinCode] = useState<string | null>(null);
-  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
   const [isCreatingClass, setIsCreatingClass] = useState(false);
   const [manualJoinCode, setManualJoinCode] = useState("");
   const [joiningManual, setJoiningManual] = useState(false);
@@ -23,9 +20,18 @@ function AppContent() {
   // Parse URL parameters for invitation links
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const join = urlParams.get("join");
-    if (join) {
-      setUrlJoinCode(join);
+    const join = urlParams.get("join") || urlParams.get("invite") || urlParams.get("code") || urlParams.get("class");
+    if (join && join.trim()) {
+      setUrlJoinCode(join.trim());
+    } else if (window.location.hash) {
+      const hashClean = window.location.hash.replace(/^#\/?/, "");
+      if (hashClean.startsWith("join=") || hashClean.startsWith("code=") || hashClean.startsWith("invite=")) {
+        const hashParams = new URLSearchParams(hashClean);
+        const hashJoin = hashParams.get("join") || hashParams.get("invite") || hashParams.get("code");
+        if (hashJoin && hashJoin.trim()) {
+          setUrlJoinCode(hashJoin.trim());
+        }
+      }
     }
   }, []);
 
@@ -86,23 +92,10 @@ function AppContent() {
     return <LandingPage />;
   }
 
-  // 4. ROLE SELECTION STEP
-  // If the profile does not have a set role yet, let them choose.
-  if (!user.role) {
-    if (!selectedRole) {
-      return <RoleSelection onRoleSelected={(role) => setSelectedRole(role)} />;
-    }
-    // Complete Profile Form after choosing role
-    return (
-      <ProfileForm 
-        role={selectedRole} 
-        onProfileCreated={() => setSelectedRole(null)} 
-      />
-    );
-  }
+  // 4. ROLE ROUTING AND HOME VIEW (Determined automatically from landing page selection)
+  const activeRole: UserRole = user.role || (localStorage.getItem("preferred_login_role") as UserRole) || "treasurer";
 
-  // 5. ROLE ROUTING AND HOME VIEW
-  if (user.role === "treasurer") {
+  if (activeRole === "treasurer") {
     
     // Create classroom form toggle
     if (isCreatingClass) {
@@ -145,6 +138,12 @@ function AppContent() {
               >
                 Logout Account
               </button>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 text-center">
+              <p className="text-[11px] text-slate-400 font-medium tracking-wide">
+                Powered by <span className="font-semibold text-slate-600">ClassFund Manager</span> &bull; Designed by <span className="font-semibold text-slate-600">Darryl jay Castillo (SHIRO)</span>
+              </p>
             </div>
           </div>
         </div>
@@ -225,6 +224,12 @@ function AppContent() {
             >
               Logout Account
             </button>
+          </div>
+
+          <div className="pt-2 border-t border-slate-100 text-center">
+            <p className="text-[11px] text-slate-400 font-medium tracking-wide">
+              Powered by <span className="font-semibold text-slate-600">ClassFund Manager</span> &bull; Designed by <span className="font-semibold text-slate-600">Darryl jay Castillo (SHIRO)</span>
+            </p>
           </div>
         </div>
       </div>

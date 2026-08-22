@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import { db } from "../firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { Landmark, Sparkles, User, GraduationCap, CheckCircle } from "lucide-react";
 import { Classroom } from "../types";
 
@@ -17,45 +17,113 @@ export const JoinClassroom: React.FC<JoinClassroomProps> = ({ inviteCode, onJoin
   const [loadingClass, setLoadingClass] = useState(true);
   
   // Student registration fields
-  const [studentId, setStudentId] = useState("");
-  const [program, setProgram] = useState("");
-  const [yearLevel, setYearLevel] = useState("2nd Year");
-  const [section, setSection] = useState("");
+  const [studentId, setStudentId] = useState(user?.studentId || "");
+  const [program, setProgram] = useState(user?.program || "");
+  const [yearLevel, setYearLevel] = useState(user?.yearLevel || "2nd Year");
+  const [section, setSection] = useState(user?.section || "");
   const [joining, setJoining] = useState(false);
 
   // Look up classroom metadata from invite code
   useEffect(() => {
+    let isMounted = true;
     const lookupClass = async () => {
+      setError(null);
+      setLoadingClass(true);
       try {
-        const cleanCode = inviteCode.trim().toUpperCase();
-        const q = query(
-          collection(db, "classrooms"), 
-          where("inviteCode", "==", cleanCode),
-          where("inviteStatus", "==", "active")
-        );
-        const querySnapshot = await getDocs(q);
+        const rawCode = inviteCode.trim();
+        const cleanCode = rawCode.toUpperCase();
         
-        if (!querySnapshot.empty) {
-          const cls = { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as Classroom;
+        let foundDoc: any = null;
+
+        // 1. First attempt: query by uppercase inviteCode
+        const q1 = query(
+          collection(db, "classrooms"), 
+          where("inviteCode", "==", cleanCode)
+        );
+        const snap1 = await getDocs(q1);
+        if (!snap1.empty) {
+          foundDoc = snap1.docs[0];
+        }
+
+        // 2. Second attempt: query by raw inviteCode
+        if (!foundDoc && rawCode !== cleanCode) {
+          const q2 = query(
+            collection(db, "classrooms"), 
+            where("inviteCode", "==", rawCode)
+          );
+          const snap2 = await getDocs(q2);
+          if (!snap2.empty) {
+            foundDoc = snap2.docs[0];
+          }
+        }
+
+        // 3. Third attempt: check if rawCode is the classroom document ID
+        if (!foundDoc) {
+          try {
+            const docRef = doc(db, "classrooms", rawCode);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+              foundDoc = docSnap;
+            }
+          } catch (e) {
+            // Ignore error if not valid doc ID
+          }
+        }
+
+        // 4. Fourth attempt: fallback scan in case of legacy formatting
+        if (!foundDoc) {
+          const allSnap = await getDocs(collection(db, "classrooms"));
+          for (const d of allSnap.docs) {
+            const data = d.data();
+            if (
+              (data.inviteCode && data.inviteCode.toString().trim().toUpperCase() === cleanCode) ||
+              d.id.toUpperCase() === cleanCode
+            ) {
+              foundDoc = d;
+              break;
+            }
+          }
+        }
+        
+        if (foundDoc && isMounted) {
+          const cls = { id: foundDoc.id, ...foundDoc.data() } as Classroom;
           setClassroomInfo(cls);
           
-          // Get Treasurer name
-          const treasurerDoc = await getDocs(query(collection(db, "users"), where("uid", "==", cls.treasurerId)));
-          if (!treasurerDoc.empty) {
-            setTreasurerName(treasurerDoc.docs[0].data().name);
+          // Pre-populate program/section/year from classroom if available
+          if (cls.program && !program) setProgram(cls.program);
+          if (cls.section && !section) setSection(cls.section);
+          if (cls.yearLevel && !yearLevel) setYearLevel(cls.yearLevel);
+
+          // Get Treasurer name safely
+          if (cls.treasurerId) {
+            try {
+              const treasurerSnap = await getDoc(doc(db, "users", cls.treasurerId));
+              if (treasurerSnap.exists() && treasurerSnap.data()?.name) {
+                setTreasurerName(treasurerSnap.data().name);
+              }
+            } catch (e) {
+              console.warn("Could not load treasurer name:", e);
+            }
           }
-        } else {
+        } else if (isMounted) {
           setError("This invitation link is invalid or has been deactivated by the Treasurer.");
         }
       } catch (err: any) {
         console.error("Lookup class error:", err);
-        setError("Failed to fetch invitation details.");
+        if (isMounted) {
+          setError("Failed to fetch invitation details: " + (err.message || "Please check connection."));
+        }
       } finally {
-        setLoadingClass(false);
+        if (isMounted) {
+          setLoadingClass(false);
+        }
       }
     };
 
     lookupClass();
+    return () => {
+      isMounted = false;
+    };
   }, [inviteCode]);
 
   const handleJoin = async (e: React.FormEvent) => {
@@ -67,17 +135,18 @@ export const JoinClassroom: React.FC<JoinClassroomProps> = ({ inviteCode, onJoin
     setJoining(true);
     try {
       const studentProfile = {
-        studentId,
-        program,
+        studentId: studentId.trim(),
+        program: program.trim(),
         yearLevel,
-        section
+        section: section.trim()
       };
       const success = await joinClassroomByCode(inviteCode, studentProfile);
       if (success) {
         onJoined();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setError(err.message || "Failed to join classroom.");
     } finally {
       setJoining(false);
     }
@@ -245,6 +314,13 @@ export const JoinClassroom: React.FC<JoinClassroomProps> = ({ inviteCode, onJoin
               </button>
             </form>
           )}
+        </div>
+        
+        {/* Footer */}
+        <div className="p-4 bg-slate-50 border-t border-slate-100 text-center">
+          <p className="text-[11px] text-slate-400 font-medium tracking-wide">
+            Powered by <span className="font-semibold text-slate-600">ClassFund Manager</span> &bull; Designed by <span className="font-semibold text-slate-600">Darryl jay Castillo (SHIRO)</span>
+          </p>
         </div>
       </div>
     </div>

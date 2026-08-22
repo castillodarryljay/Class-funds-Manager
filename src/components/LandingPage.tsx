@@ -6,11 +6,13 @@ export const LandingPage: React.FC = () => {
   const { signInGoogle, loginSandboxUser, error, setError } = useApp();
   const [showSandboxOptions, setShowSandboxOptions] = useState(false);
   const [customName, setCustomName] = useState("");
-  const [sandboxRole, setSandboxRole] = useState<"treasurer" | "student">("treasurer");
+  const [selectedRole, setSelectedRole] = useState<"treasurer" | "student">(() => {
+    return (localStorage.getItem("preferred_login_role") as "treasurer" | "student") || "treasurer";
+  });
 
   const handleSandboxLogin = async () => {
     try {
-      await loginSandboxUser(sandboxRole, customName.trim() || undefined);
+      await loginSandboxUser(selectedRole, customName.trim() || undefined);
     } catch (err) {
       console.error(err);
     }
@@ -94,13 +96,50 @@ export const LandingPage: React.FC = () => {
           {/* Hero Right: Sign-In Panel */}
           <div className="lg:col-span-5 bg-white p-8 rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 flex flex-col justify-center text-center">
             
-            {/* Header and Information */}
-            <div className="mb-8 space-y-2">
+            {/* Segmented Tab Selector for Login Role */}
+            <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-2xl mb-6">
+              <button
+                onClick={() => {
+                  setSelectedRole("treasurer");
+                  localStorage.setItem("preferred_login_role", "treasurer");
+                }}
+                className={`py-3 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+                  selectedRole === "treasurer"
+                    ? "bg-white text-slate-950 shadow-sm font-black"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+                id="login-tab-treasurer"
+              >
+                <Shield className="h-3.5 w-3.5" />
+                Treasurer
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedRole("student");
+                  localStorage.setItem("preferred_login_role", "student");
+                }}
+                className={`py-3 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+                  selectedRole === "student"
+                    ? "bg-white text-slate-950 shadow-sm font-black"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+                id="login-tab-student"
+              >
+                <Users className="h-3.5 w-3.5" />
+                Student
+              </button>
+            </div>
+
+            {/* Role Header and Information */}
+            <div className="mb-6 space-y-1">
               <h2 className="text-2xl font-extrabold text-slate-950 tracking-tight">
-                Secure Account Access
+                {selectedRole === "treasurer" ? "Treasurer Portal" : "Student Portal"}
               </h2>
-              <p className="text-slate-500 text-sm leading-relaxed">
-                Sign in to ClassFund Manager using your Google account to access your workspaces and financials.
+              <p className="text-slate-500 text-sm leading-normal">
+                {selectedRole === "treasurer" 
+                  ? "Sign in to manage classes, target goals, record payments, and track receipts."
+                  : "Sign in to view your individual payments, remaining balances, and verify receipts."
+                }
               </p>
             </div>
 
@@ -114,7 +153,10 @@ export const LandingPage: React.FC = () => {
             <div className="space-y-4">
               {/* Google Sign In */}
               <button
-                onClick={signInGoogle}
+                onClick={() => {
+                  localStorage.setItem("preferred_login_role", selectedRole);
+                  signInGoogle(selectedRole);
+                }}
                 className="w-full bg-slate-950 hover:bg-slate-900 text-white font-semibold py-3.5 px-6 rounded-xl transition flex items-center justify-center gap-3 shadow-md hover:shadow-lg hover:shadow-slate-950/10 cursor-pointer"
                 id="google-signin-btn"
               >
@@ -124,12 +166,18 @@ export const LandingPage: React.FC = () => {
                   <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
                   <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
                 </svg>
-                Sign in with Google
+                Continue as {selectedRole === "treasurer" ? "Treasurer" : "Student"}
               </button>
 
-              <p className="text-[10px] text-slate-400 font-medium">
-                * Role allocation happens immediately upon first-time account sign-in.
-              </p>
+              {selectedRole === "treasurer" ? (
+                <p className="text-[10px] text-slate-400 font-medium">
+                  * First-time Treasurers will be requested to provide a security key.
+                </p>
+              ) : (
+                <p className="text-[10px] text-emerald-600 font-semibold">
+                  * Join your class instantly by signing in and entering your invite code.
+                </p>
+              )}
 
               <div className="relative flex py-2 items-center">
                 <div className="flex-grow border-t border-slate-200"></div>
@@ -144,7 +192,7 @@ export const LandingPage: React.FC = () => {
                   className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold py-2.5 px-6 rounded-xl transition flex items-center justify-center gap-2 border border-slate-200/60 text-xs cursor-pointer"
                   id="show-sandbox-options-btn"
                 >
-                  Quick Sandbox Demo Panel
+                  Quick Sandbox Demo ({selectedRole === "treasurer" ? "Treasurer" : "Student"})
                   <ArrowRight className="h-3.5 w-3.5" />
                 </button>
               ) : (
@@ -163,42 +211,11 @@ export const LandingPage: React.FC = () => {
                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Testing Name</label>
                     <input
                       type="text"
-                      className="w-full text-sm bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:border-emerald-600 mb-3"
-                      placeholder={sandboxRole === "treasurer" ? "e.g. Darryl Jay" : "e.g. Juan Dela Cruz"}
+                      className="w-full text-sm bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:border-emerald-600"
+                      placeholder={selectedRole === "treasurer" ? "e.g. Darryl Jay" : "e.g. Juan Dela Cruz"}
                       value={customName}
                       onChange={(e) => setCustomName(e.target.value)}
                     />
-                  </div>
-
-                  {/* Role Selector Tabs inside Sandbox context */}
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Simulated Account Role</label>
-                    <div className="grid grid-cols-2 p-1 bg-slate-200/60 rounded-xl">
-                      <button
-                        type="button"
-                        onClick={() => setSandboxRole("treasurer")}
-                        className={`py-2 px-2 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                          sandboxRole === "treasurer"
-                            ? "bg-white text-slate-950 shadow-sm font-bold"
-                            : "text-slate-500 hover:text-slate-800"
-                        }`}
-                      >
-                        <Shield className="h-3 w-3" />
-                        Treasurer
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSandboxRole("student")}
-                        className={`py-2 px-2 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                          sandboxRole === "student"
-                            ? "bg-white text-slate-950 shadow-sm font-bold"
-                            : "text-slate-500 hover:text-slate-800"
-                        }`}
-                      >
-                        <Users className="h-3 w-3" />
-                        Student
-                      </button>
-                    </div>
                   </div>
 
                   <button
@@ -206,7 +223,7 @@ export const LandingPage: React.FC = () => {
                     className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg text-xs transition cursor-pointer"
                     id="submit-sandbox-login-btn"
                   >
-                    Login as Sandbox {sandboxRole === "treasurer" ? "Treasurer" : "Student"}
+                    Login as Sandbox {selectedRole === "treasurer" ? "Treasurer" : "Student"}
                   </button>
                   <p className="text-[10px] text-slate-400 text-center leading-normal mt-1">
                     * Bypasses Google popup blocker. Writes to real Firestore database.
@@ -219,13 +236,19 @@ export const LandingPage: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-200 py-6 text-center text-xs text-slate-500 px-6">
+      <footer className="border-t border-slate-200 py-6 text-center text-xs text-slate-400 px-6">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <span>Class Funds System &copy; 2026. Designed & Developed by <strong>Darryl Jay Castillo (SHIRO)</strong>.</span>
-          <div className="flex gap-4">
+          <p className="tracking-wide">
+            Powered by <span className="font-semibold text-slate-600">ClassFund Manager</span>
+            <span className="mx-2 text-slate-300">|</span>
+            Designed by <span className="font-bold text-emerald-600">Darryl jay Castillo (SHIRO)</span>
+          </p>
+          <div className="flex items-center gap-4 text-[11px]">
             <span className="text-slate-400">Firebase Firestore</span>
+            <span className="text-slate-300">&bull;</span>
             <span className="text-slate-400">Secure Audit Logs</span>
-            <span className="text-slate-400 font-bold text-emerald-600">SHIRO &bull; Creator</span>
+            <span className="text-slate-300">&bull;</span>
+            <span className="text-emerald-600 font-bold">SHIRO &bull; Creator</span>
           </div>
         </div>
       </footer>
