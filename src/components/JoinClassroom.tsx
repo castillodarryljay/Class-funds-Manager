@@ -27,9 +27,10 @@ export const JoinClassroom: React.FC<JoinClassroomProps> = ({ inviteCode, onJoin
   useEffect(() => {
     const lookupClass = async () => {
       try {
+        const cleanCode = inviteCode.trim().toUpperCase();
         const q = query(
           collection(db, "classrooms"), 
-          where("inviteCode", "==", inviteCode),
+          where("inviteCode", "==", cleanCode),
           where("inviteStatus", "==", "active")
         );
         const querySnapshot = await getDocs(q);

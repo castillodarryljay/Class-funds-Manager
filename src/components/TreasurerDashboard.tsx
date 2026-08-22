@@ -75,7 +75,7 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
   }
 
   // Calculated Statistics
-  const studentsCount = members.filter(m => m.role === "student").length;
+  const studentsCount = members.filter(m => m.role === "student" || m.role === "treasurer").length;
   
   // Total Collected (Income)
   const totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
@@ -86,9 +86,9 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
   // Net Balance
   const fundBalance = totalCollected - totalExpenses;
 
-  // Non-contributing Students count
+  // Non-contributing Students count (includes Treasurer as a potential contributor)
   const nonContributorsCount = members.filter(m => {
-    if (m.role !== "student") return false;
+    if (m.role !== "student" && m.role !== "treasurer") return false;
     const studentPayments = payments.filter(p => p.studentId === m.uid);
     const paid = studentPayments.reduce((sum, p) => sum + p.amount, 0);
     return paid === 0;
@@ -116,9 +116,9 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
     await updateClassroomSettings({ inviteStatus: nextStatus });
   };
 
-  // Student list mapping with calculation
+  // Student list mapping with calculation (includes Treasurer as a contributing student)
   const mappedStudents = members
-    .filter(m => m.role === "student")
+    .filter(m => m.role === "student" || m.role === "treasurer")
     .map(student => {
       const studentPayments = payments.filter(p => p.studentId === student.uid);
       const paid = studentPayments.reduce((sum, p) => sum + p.amount, 0);
@@ -1168,8 +1168,12 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
         )}
 
         {/* Footer Credits */}
-        <footer className="mt-12 border-t border-slate-200/60 pt-6 pb-4 text-center text-xs text-slate-500">
-          <p>Class Funds System &copy; 2026. Designed & Developed by <strong className="text-slate-800">Darryl Jay Castillo (SHIRO)</strong>.</p>
+        <footer className="mt-12 border-t border-slate-200/60 pt-6 pb-4 text-center text-xs text-slate-400">
+          <p className="tracking-wide">
+            Powered by <span className="font-semibold text-slate-600">ClassFund Manager</span>
+            <span className="mx-2 text-slate-300">|</span>
+            Designed by <span className="font-bold text-emerald-600">Darryl jay Castillo (SHIRO)</span>
+          </p>
         </footer>
       </main>
 

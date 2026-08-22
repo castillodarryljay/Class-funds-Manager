@@ -13,8 +13,8 @@ interface PaymentModalProps {
 export const PaymentModal: React.FC<PaymentModalProps> = ({ onClose, student, paymentToEdit }) => {
   const { members, recordPayment, updatePayment, classroom } = useApp();
   
-  // Filter members to only get students
-  const students = members.filter(m => m.role === "student");
+  // Filter members to only get students (including the Treasurer who can also contribute)
+  const students = members.filter(m => m.role === "student" || m.role === "treasurer");
   
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [amount, setAmount] = useState<number>(0);

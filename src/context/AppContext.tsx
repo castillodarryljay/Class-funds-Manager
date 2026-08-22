@@ -460,10 +460,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!user) return false;
     setLoading(true);
     try {
+      const cleanCode = inviteCode.trim().toUpperCase();
       // Find classroom with active invite code
       const q = query(
         collection(db, "classrooms"), 
-        where("inviteCode", "==", inviteCode),
+        where("inviteCode", "==", cleanCode),
         where("inviteStatus", "==", "active")
       );
       const querySnapshot = await getDocs(q);

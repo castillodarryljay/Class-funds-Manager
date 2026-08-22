@@ -12,8 +12,8 @@ export const ReportView: React.FC = () => {
 
   if (!classroom) return null;
 
-  // Calculate statistics
-  const totalStudents = members.filter(m => m.role === "student").length;
+  // Calculate statistics (including Treasurer as a contributing student)
+  const totalStudents = members.filter(m => m.role === "student" || m.role === "treasurer").length;
   
   // Total Collected (Sum of all payments)
   const totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
@@ -24,9 +24,9 @@ export const ReportView: React.FC = () => {
   // Balance
   const fundBalance = totalCollected - totalExpenses;
 
-  // Student specific contribution tracking
+  // Student specific contribution tracking (includes Treasurer)
   const studentContributionMap = members
-    .filter(m => m.role === "student")
+    .filter(m => m.role === "student" || m.role === "treasurer")
     .map(student => {
       const studentPayments = payments.filter(p => p.studentId === student.uid);
       const paid = studentPayments.reduce((sum, p) => sum + p.amount, 0);

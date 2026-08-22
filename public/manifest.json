@@ -1,0 +1,18 @@
+{
+  "name": "ClassFund Manager",
+  "short_name": "ClassFund",
+  "description": "Premium, secure classroom financial manager & student receipt book.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

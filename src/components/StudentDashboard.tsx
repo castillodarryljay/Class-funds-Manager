@@ -465,8 +465,12 @@ export const StudentDashboard: React.FC = () => {
         </div>
 
         {/* Footer Credits */}
-        <footer className="mt-8 border-t border-slate-200/60 pt-6 pb-4 text-center text-xs text-slate-500">
-          <p>Class Funds System &copy; 2026. Designed & Developed by <strong className="text-slate-800">Darryl Jay Castillo (SHIRO)</strong>.</p>
+        <footer className="mt-8 border-t border-slate-200/60 pt-6 pb-4 text-center text-xs text-slate-400">
+          <p className="tracking-wide">
+            Powered by <span className="font-semibold text-slate-600">ClassFund Manager</span>
+            <span className="mx-2 text-slate-300">|</span>
+            Designed by <span className="font-bold text-emerald-600">Darryl jay Castillo (SHIRO)</span>
+          </p>
         </footer>
       </main>
 
