@@ -7,7 +7,8 @@
     <meta name="description" content="Premium, secure classroom financial manager & student receipt book." />
     <meta name="theme-color" content="#10b981" />
     <link rel="icon" type="image/png" href="/logo.png" />
-    <link rel="apple-touch-icon" href="/logo.png" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
     <meta property="og:title" content="ClassFund Manager" />
     <meta property="og:description" content="Premium, secure classroom financial manager & student receipt book." />
@@ -18,26 +19,19 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      // Clear out legacy cache and workers that cause production flickers
+      // Automatically clean legacy workers & caches to guarantee instant, flicker-free rendering
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          if ('caches' in window) {
-            caches.keys().then((names) => {
-              for (let name of names) {
-                if (name !== 'classfund-cache-v2') {
-                  caches.delete(name);
-                }
-              }
-            });
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for (var i = 0; i < registrations.length; i++) {
+            registrations[i].unregister();
           }
-          navigator.serviceWorker.getRegistrations().then((registrations) => {
-            for (let registration of registrations) {
-              registration.update();
-            }
-          });
-          navigator.serviceWorker.register('/sw.js')
-            .then((reg) => console.log('PWA Service Worker ready:', reg.scope))
-            .catch((err) => console.log('PWA Service Worker notice:', err));
+        });
+      }
+      if ('caches' in window) {
+        caches.keys().then(function(keys) {
+          for (var j = 0; j < keys.length; j++) {
+            caches.delete(keys[j]);
+          }
         });
       }
     </script>

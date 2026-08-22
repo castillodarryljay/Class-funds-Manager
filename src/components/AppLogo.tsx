@@ -16,28 +16,28 @@ export const AppLogo: React.FC<AppLogoProps> = ({
   subtitle,
   dark = false
 }) => {
-  const sizeMap = {
-    xs: "h-6 w-6 min-w-6",
-    sm: "h-8 w-8 min-w-8",
-    md: "h-11 w-11 min-w-11",
-    lg: "h-16 w-16 min-w-16",
-    xl: "h-20 w-20 min-w-20",
-    hero: "h-24 w-24 min-w-24"
+  const sizeConfig = {
+    xs: { css: "h-6 w-6", px: 24 },
+    sm: { css: "h-8 w-8", px: 32 },
+    md: { css: "h-11 w-11", px: 44 },
+    lg: { css: "h-16 w-16", px: 64 },
+    xl: { css: "h-20 w-20", px: 80 },
+    hero: { css: "h-24 w-24", px: 96 }
   };
 
-  const imgDimension = sizeMap[size] || sizeMap.md;
+  const config = sizeConfig[size] || sizeConfig.md;
 
   return (
-    <div className={`flex items-center gap-3 ${className}`}>
-      <div className="relative shrink-0 flex items-center justify-center">
+    <div className={`inline-flex items-center gap-3 select-none ${className}`}>
+      <div className={`relative shrink-0 flex items-center justify-center ${config.css}`}>
         <img
           src={LOGO_BASE64}
-          alt="ClassFund Logo"
+          alt="Class Funds Logo"
+          width={config.px}
+          height={config.px}
           loading="eager"
           decoding="sync"
-          className={`${imgDimension} rounded-2xl object-contain drop-shadow-md select-none transition-transform duration-200 hover:scale-105 ${
-            dark ? "bg-slate-900/60 p-1 border border-slate-800/80" : "bg-white/90 p-1 border border-slate-100 shadow-sm"
-          }`}
+          className="w-full h-full rounded-2xl object-contain drop-shadow-sm pointer-events-none"
         />
       </div>
 
