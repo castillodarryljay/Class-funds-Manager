@@ -1,11 +1,12 @@
-const CACHE_NAME = "classfund-cache-v1";
+const CACHE_NAME = "classfund-cache-v2";
 const OFFLINE_URL = "/index.html";
 
 const ASSETS_TO_CACHE = [
   "/",
   "/index.html",
   "/manifest.json",
-  "/icon.svg"
+  "/logo.png",
+  "/favicon.ico"
 ];
 
 // On installation, cache the primary offline shell
