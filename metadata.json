@@ -1,0 +1,6 @@
+{
+  "name": "Class Funds Management System",
+  "description": "A secure and transparent classroom fund management system with role-based dashboards, invitation links, payment logs, and financial reports.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

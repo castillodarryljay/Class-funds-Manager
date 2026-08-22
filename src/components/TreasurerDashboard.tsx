@@ -1,0 +1,1037 @@
+import React, { useState } from "react";
+import { useApp } from "../context/AppContext";
+import { 
+  Landmark, 
+  Users, 
+  Wallet, 
+  TrendingUp, 
+  Plus, 
+  Settings, 
+  Clock, 
+  Copy, 
+  Check, 
+  FileText, 
+  Search, 
+  Filter, 
+  ArrowRight, 
+  Edit, 
+  Calendar, 
+  User, 
+  Briefcase,
+  ExternalLink,
+  ShieldAlert,
+  LogOut,
+  ChevronRight,
+  ShieldCheck,
+  ToggleLeft,
+  ToggleRight
+} from "lucide-react";
+import { PaymentModal } from "./PaymentModal";
+import { ExpenseModal } from "./ExpenseModal";
+import { ReportView } from "./ReportView";
+import { Classroom, Member, Payment } from "../types";
+
+export const TreasurerDashboard: React.FC = () => {
+  const { 
+    user, 
+    classroom, 
+    classrooms, 
+    members, 
+    payments, 
+    expenses, 
+    auditLogs, 
+    updateClassroomSettings, 
+    selectClassroom,
+    signOutUser 
+  } = useApp();
+
+  const [activeTab, setActiveTab] = useState<"overview" | "students" | "payments" | "funds" | "reports" | "invite" | "audit" | "settings">("overview");
+  
+  // Modal controllers
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [selectedStudentForPayment, setSelectedStudentForPayment] = useState<Member | undefined>(undefined);
+  const [selectedPaymentForEdit, setSelectedPaymentForEdit] = useState<Payment | undefined>(undefined);
+  const [selectedStudentDetail, setSelectedStudentDetail] = useState<Member | null>(null);
+
+  // Search/Filters states for Students List
+  const [studentSearch, setStudentSearch] = useState("");
+  const [studentFilter, setStudentFilter] = useState<"all" | "paid" | "partial" | "unpaid">("all");
+
+  // Copy controllers
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+
+  if (!user || classrooms.length === 0 || !classroom) {
+    return null; // Safety, App.tsx handles loading or empty workspace redirect
+  }
+
+  // Calculated Statistics
+  const studentsCount = members.filter(m => m.role === "student").length;
+  const goal = classroom.contributionGoal;
+  const expectedContributions = studentsCount * goal;
+  
+  // Total Collected (Income)
+  const totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
+  
+  // Total Expenses (Expenses)
+  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+  
+  // Remaining balance
+  const remainingCollected = Math.max(0, expectedContributions - totalCollected);
+  
+  // Net Balance
+  const fundBalance = totalCollected - totalExpenses;
+
+  // Unpaid Students count
+  const unpaidStudentsCount = members.filter(m => {
+    if (m.role !== "student") return false;
+    const studentPayments = payments.filter(p => p.studentId === m.uid);
+    const paid = studentPayments.reduce((sum, p) => sum + p.amount, 0);
+    return paid === 0;
+  }).length;
+
+  // Invitation link details
+  const getInviteLink = () => {
+    return `${window.location.origin}/?join=${classroom.inviteCode}`;
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(getInviteLink());
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(classroom.inviteCode);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const toggleInviteStatus = async () => {
+    const nextStatus = classroom.inviteStatus === "active" ? "inactive" : "active";
+    await updateClassroomSettings({ inviteStatus: nextStatus });
+  };
+
+  // Student list mapping with calculation
+  const mappedStudents = members
+    .filter(m => m.role === "student")
+    .map(student => {
+      const studentPayments = payments.filter(p => p.studentId === student.uid);
+      const paid = studentPayments.reduce((sum, p) => sum + p.amount, 0);
+      const remaining = Math.max(0, goal - paid);
+      let status: "Paid" | "Partial" | "Unpaid" = "Unpaid";
+      if (paid >= goal) status = "Paid";
+      else if (paid > 0) status = "Partial";
+
+      return {
+        member: student,
+        paid,
+        remaining,
+        status
+      };
+    });
+
+  // Filtered Students List
+  const filteredStudents = mappedStudents.filter(s => {
+    const matchesSearch = s.member.name.toLowerCase().includes(studentSearch.toLowerCase()) || 
+                          (s.member.studentId || "").toLowerCase().includes(studentSearch.toLowerCase());
+    
+    if (!matchesSearch) return false;
+    
+    if (studentFilter === "all") return true;
+    if (studentFilter === "paid") return s.status === "Paid";
+    if (studentFilter === "partial") return s.status === "Partial";
+    if (studentFilter === "unpaid") return s.status === "Unpaid";
+    return true;
+  });
+
+  // Financial Ledger Logs (combines payments & expenses in sequential running timeline order)
+  const financialRecords: Array<{
+    date: string;
+    description: string;
+    income: number;
+    expense: number;
+    reference: string;
+    recordedBy: string;
+    type: "income" | "expense";
+  }> = [
+    ...payments.map(p => ({
+      date: p.paymentDate,
+      description: `Student Contribution: ${p.studentName}`,
+      income: p.amount,
+      expense: 0,
+      reference: p.referenceNumber || "Cash Log",
+      recordedBy: p.recordedBy,
+      type: "income" as const
+    })),
+    ...expenses.map(e => ({
+      date: e.createdAt.split("T")[0],
+      description: `Expense: ${e.description} (${e.category})`,
+      income: 0,
+      expense: e.amount,
+      reference: e.paidTo,
+      recordedBy: e.recordedBy,
+      type: "expense" as const
+    }))
+  ];
+
+  // Sort by date descending
+  financialRecords.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  // Render individual student detail subview
+  const renderStudentDetailView = () => {
+    if (!selectedStudentDetail) return null;
+    
+    const sPayments = payments.filter(p => p.studentId === selectedStudentDetail.uid);
+    const paid = sPayments.reduce((sum, p) => sum + p.amount, 0);
+    const remaining = Math.max(0, goal - paid);
+    const status = paid >= goal ? "Paid" : paid > 0 ? "Partial" : "Unpaid";
+
+    return (
+      <div className="bg-white rounded-3xl border border-slate-200/80 p-6 space-y-6 text-left animate-fade-in" id="student-profile-view">
+        <div className="flex justify-between items-start">
+          <button 
+            onClick={() => setSelectedStudentDetail(null)}
+            className="text-xs font-bold text-slate-500 hover:text-slate-900 flex items-center gap-1 transition"
+          >
+            &larr; Back to Student List
+          </button>
+          
+          <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+            status === "Paid" ? "bg-emerald-100 text-emerald-800" :
+            status === "Partial" ? "bg-amber-100 text-amber-800" :
+            "bg-red-100 text-red-800"
+          }`}>
+            {status}
+          </span>
+        </div>
+
+        {/* Student Bio */}
+        <div className="flex gap-4 items-center">
+          <div className="bg-emerald-50 text-emerald-700 h-14 w-14 rounded-2xl flex items-center justify-center font-black text-lg border border-emerald-100/50">
+            {selectedStudentDetail.name.charAt(0)}
+          </div>
+          <div>
+            <h3 className="font-extrabold text-slate-950 text-lg leading-tight">{selectedStudentDetail.name}</h3>
+            <p className="text-xs text-slate-500 font-semibold mt-0.5">Student ID: {selectedStudentDetail.studentId || "N/A"}</p>
+            <p className="text-xs text-slate-400 font-semibold">{selectedStudentDetail.email}</p>
+          </div>
+        </div>
+
+        {/* Contributions Summary */}
+        <div className="grid grid-cols-3 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
+          <div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Goal Target</span>
+            <span className="font-extrabold text-slate-900 text-sm">₱{goal.toLocaleString()}</span>
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Contributed</span>
+            <span className="font-extrabold text-emerald-600 text-sm">₱{paid.toLocaleString()}</span>
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Remaining</span>
+            <span className="font-extrabold text-slate-900 text-sm">₱{remaining.toLocaleString()}</span>
+          </div>
+        </div>
+
+        {/* Action Controls */}
+        <div className="flex gap-3">
+          <button
+            onClick={() => {
+              setSelectedStudentForPayment(selectedStudentDetail);
+              setSelectedPaymentForEdit(undefined);
+              setShowPaymentModal(true);
+            }}
+            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-600/10"
+          >
+            <Plus className="h-4 w-4" /> Record Payment
+          </button>
+        </div>
+
+        {/* Personal Payment logs list */}
+        <div className="space-y-3">
+          <h4 className="font-bold text-slate-950 text-xs uppercase tracking-wider">Payment Transactions Trail</h4>
+          <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto pr-1 border border-slate-100 rounded-2xl bg-white">
+            {sPayments.map(p => (
+              <div key={p.id} className="p-3.5 flex justify-between items-center hover:bg-slate-50/50">
+                <div className="text-left space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-950 text-xs">{p.paymentDate}</span>
+                    <span className="px-1.5 py-0.5 bg-slate-100 text-[10px] text-slate-600 font-bold rounded">{p.paymentMethod}</span>
+                  </div>
+                  {p.referenceNumber && <span className="text-[10px] text-slate-400 font-semibold block font-mono">Ref: {p.referenceNumber}</span>}
+                  {p.notes && <p className="text-[10px] text-slate-500 italic leading-snug mt-1 max-w-xs">{p.notes}</p>}
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-extrabold text-slate-950 text-sm">₱{p.amount.toLocaleString()}</span>
+                  
+                  {/* Adjustment Correct logs */}
+                  <button
+                    onClick={() => {
+                      setSelectedPaymentForEdit(p);
+                      setShowPaymentModal(true);
+                    }}
+                    className="p-1.5 text-slate-400 hover:text-slate-900 transition hover:bg-slate-100 rounded-lg"
+                    title="Correct Payment"
+                  >
+                    <Edit className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+            {sPayments.length === 0 && (
+              <div className="p-8 text-center text-slate-400 italic font-medium text-xs">
+                No payments recorded for this student.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row" id="treasurer-dashboard">
+      
+      {/* Dashboard Sidebar Navigation */}
+      <aside className="w-full md:w-64 bg-slate-950 text-white flex flex-col justify-between shrink-0 p-6 md:min-h-screen border-r border-slate-800">
+        <div className="space-y-8">
+          {/* Brand logo */}
+          <div className="flex items-center gap-2.5">
+            <div className="bg-emerald-600 text-white p-2 rounded-xl shadow-md">
+              <Landmark className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="font-extrabold text-lg tracking-tight uppercase block leading-none">Class Funds</span>
+              <span className="text-[9px] text-emerald-400 font-bold tracking-wider uppercase block -mt-0.5">Treasurer Console</span>
+            </div>
+          </div>
+
+          {/* Active Workspace Select */}
+          <div className="space-y-1 text-left">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Classroom Workspace</label>
+            <select
+              value={classroom.id}
+              onChange={(e) => selectClassroom(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-800 text-slate-100 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-emerald-600"
+            >
+              {classrooms.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* User profile card */}
+          <div className="bg-slate-900 p-3.5 rounded-2xl border border-slate-800/80 flex items-center gap-3">
+            <img 
+              src={user.photoURL} 
+              alt="Avatar" 
+              referrerPolicy="no-referrer"
+              className="h-9 w-9 rounded-full border border-slate-700 bg-slate-800 p-0.5" 
+            />
+            <div className="min-w-0 text-left">
+              <span className="font-bold text-slate-100 text-sm block truncate">{user.name}</span>
+              <span className="text-[10px] text-emerald-400 font-bold block uppercase tracking-wider">Active Treasurer</span>
+            </div>
+          </div>
+
+          {/* Navigation links */}
+          <nav className="space-y-1.5 text-left">
+            {[
+              { id: "overview", label: "Overview", icon: Landmark },
+              { id: "students", label: "Students", icon: Users },
+              { id: "payments", label: "Payments", icon: Wallet },
+              { id: "funds", label: "Fund Records", icon: TrendingUp },
+              { id: "reports", label: "Reports", icon: FileText },
+              { id: "invite", label: "Invite Students", icon: ExternalLink },
+              { id: "audit", label: "Audit Logs", icon: Clock },
+              { id: "settings", label: "Settings", icon: Settings }
+            ].map(tab => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveTab(tab.id as any);
+                    setSelectedStudentDetail(null);
+                  }}
+                  className={`w-full py-2 px-3 rounded-xl text-xs font-bold transition flex items-center gap-2.5 ${
+                    activeTab === tab.id
+                      ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/10"
+                      : "text-slate-400 hover:text-white hover:bg-slate-900"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" /> {tab.label}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Logout button */}
+        <button
+          onClick={signOutUser}
+          className="w-full py-2 px-3 rounded-xl text-xs font-bold text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition flex items-center gap-2.5 text-left mt-8 md:mt-0"
+        >
+          <LogOut className="h-4 w-4" /> Log Out Account
+        </button>
+      </aside>
+
+      {/* Main Panel Area */}
+      <main className="flex-1 p-6 md:p-8 space-y-6 overflow-y-auto md:max-h-screen">
+        
+        {/* Top Header Workspace Block */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm text-left">
+          <div className="space-y-0.5">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Class Workspace Dashboard</span>
+            <h1 className="text-2xl font-black text-slate-950 tracking-tight">{classroom.name}</h1>
+            <p className="text-xs text-slate-500 font-medium">
+              {classroom.school} &bull; SY {classroom.schoolYear} &bull; {classroom.program || "General Course"}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                setSelectedStudentForPayment(undefined);
+                setSelectedPaymentForEdit(undefined);
+                setShowPaymentModal(true);
+              }}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center gap-1.5 shadow-sm shadow-emerald-600/10"
+            >
+              <Plus className="h-4 w-4" /> Record Payment
+            </button>
+            <button
+              onClick={() => setShowExpenseModal(true)}
+              className="bg-slate-950 hover:bg-slate-900 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center gap-1.5 shadow-sm shadow-slate-950/10"
+            >
+              <Plus className="h-4 w-4" /> Add Expense
+            </button>
+          </div>
+        </div>
+
+        {/* 1. OVERVIEW TAB */}
+        {activeTab === "overview" && (
+          <div className="space-y-6">
+            
+            {/* statistics cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-left">
+              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Total Collected</span>
+                <span className="text-2xl font-black text-emerald-600">₱{totalCollected.toLocaleString()}</span>
+                <span className="text-[10px] text-slate-400 block font-semibold">Goal target: ₱{expectedContributions.toLocaleString()}</span>
+              </div>
+
+              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Class Expenses</span>
+                <span className="text-2xl font-black text-red-600">₱{totalExpenses.toLocaleString()}</span>
+                <span className="text-[10px] text-slate-400 block font-semibold">{expenses.length} outgoing records</span>
+              </div>
+
+              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Net Fund Balance</span>
+                <span className="text-2xl font-black text-slate-950">₱{fundBalance.toLocaleString()}</span>
+                <span className="text-[10px] text-slate-400 block font-semibold">Available cash inside class</span>
+              </div>
+
+              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Enrolled Students</span>
+                <span className="text-2xl font-black text-slate-950">{studentsCount}</span>
+                <span className="text-[10px] text-slate-400 block font-semibold">{unpaidStudentsCount} unpaid accounts</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 text-left">
+              
+              {/* Financial Progress Visual */}
+              <div className="lg:col-span-8 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
+                <h3 className="font-extrabold text-slate-950 text-base">Funding Target Progress</h3>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-xs text-slate-400 block font-semibold">Collected Contribution Funds</span>
+                    <span className="text-xl font-bold text-slate-950">₱{totalCollected.toLocaleString()}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-slate-400 block font-semibold">Remaining Target Target</span>
+                    <span className="text-xl font-bold text-slate-950">₱{remainingCollected.toLocaleString()}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="h-3 bg-slate-100 rounded-full overflow-hidden flex">
+                    <div 
+                      className="bg-emerald-600 h-full rounded-full transition-all duration-1000"
+                      style={{ width: `${expectedContributions > 0 ? Math.min(100, Math.round((totalCollected / expectedContributions) * 100)) : 0}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between items-center text-[10px] font-bold text-slate-400">
+                    <span>{expectedContributions > 0 ? Math.min(100, Math.round((totalCollected / expectedContributions) * 100)) : 0}% Collected</span>
+                    <span>Target: ₱{expectedContributions.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fast invitation summary */}
+              <div className="lg:col-span-4 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                <div className="space-y-2">
+                  <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest block">Join Code</span>
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 flex items-center justify-between">
+                    <span className="font-extrabold text-slate-950 tracking-wider text-sm">{classroom.inviteCode}</span>
+                    <button onClick={handleCopyCode} className="text-slate-400 hover:text-slate-700 transition">
+                      {copiedCode ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setActiveTab("invite")}
+                  className="w-full mt-4 bg-slate-950 hover:bg-slate-900 text-white font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-1.5"
+                >
+                  Open Invitation Center
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Recent records */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-left">
+              {/* Recent Payments */}
+              <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
+                <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                  <h3 className="font-extrabold text-slate-950 text-sm">Recent Contributions</h3>
+                  <button onClick={() => setActiveTab("payments")} className="text-xs font-bold text-emerald-600 hover:text-emerald-700">View All</button>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {payments.slice(0, 4).map(p => (
+                    <div key={p.id} className="py-2.5 flex justify-between items-center">
+                      <div>
+                        <span className="font-bold text-slate-950 text-xs block">{p.studentName}</span>
+                        <span className="text-[10px] text-slate-400 font-semibold">{p.paymentDate} &bull; {p.paymentMethod}</span>
+                      </div>
+                      <span className="font-extrabold text-emerald-600 text-xs">+₱{p.amount.toLocaleString()}</span>
+                    </div>
+                  ))}
+                  {payments.length === 0 && (
+                    <div className="py-8 text-center text-slate-400 italic text-xs font-semibold">No payments recorded yet.</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Recent Expenses */}
+              <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
+                <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                  <h3 className="font-extrabold text-slate-950 text-sm">Recent Outgoing Expenses</h3>
+                  <button onClick={() => setActiveTab("funds")} className="text-xs font-bold text-emerald-600 hover:text-emerald-700">View All</button>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {expenses.slice(0, 4).map(e => (
+                    <div key={e.id} className="py-2.5 flex justify-between items-center">
+                      <div>
+                        <span className="font-bold text-slate-950 text-xs block">{e.description}</span>
+                        <span className="text-[10px] text-slate-400 font-semibold">{e.paidTo} &bull; {e.category}</span>
+                      </div>
+                      <span className="font-extrabold text-red-600 text-xs">-₱{e.amount.toLocaleString()}</span>
+                    </div>
+                  ))}
+                  {expenses.length === 0 && (
+                    <div className="py-8 text-center text-slate-400 italic text-xs font-semibold">No expenses logged yet.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 2. STUDENTS TAB */}
+        {activeTab === "students" && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 text-left">
+            
+            {/* Student List Grid - Left/Full */}
+            <div className={`${selectedStudentDetail ? "lg:col-span-7" : "lg:col-span-12"} bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4`}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                <h3 className="font-extrabold text-slate-950 text-base">Class Students List</h3>
+                <span className="text-xs text-slate-400 font-semibold">{filteredStudents.length} of {mappedStudents.length} students</span>
+              </div>
+
+              {/* Search & Filters */}
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 pb-2">
+                {/* Search */}
+                <div className="sm:col-span-8 relative">
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search students by name or ID..."
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-slate-900 focus:outline-none focus:border-emerald-600 focus:bg-white"
+                    value={studentSearch}
+                    onChange={(e) => setStudentSearch(e.target.value)}
+                  />
+                </div>
+                {/* Filters */}
+                <div className="sm:col-span-4 relative">
+                  <Filter className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                  <select
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 font-bold text-slate-600 focus:outline-none focus:border-emerald-600 focus:bg-white"
+                    value={studentFilter}
+                    onChange={(e) => setStudentFilter(e.target.value as any)}
+                  >
+                    <option value="all">All Contribution Levels</option>
+                    <option value="paid">Fully Paid</option>
+                    <option value="partial">Partially Paid</option>
+                    <option value="unpaid">Unpaid</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Students Table */}
+              <div className="overflow-hidden rounded-2xl border border-slate-100">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider">
+                    <tr>
+                      <th className="px-5 py-3 text-left">Student</th>
+                      <th className="px-5 py-3 text-left">Student ID</th>
+                      <th className="px-5 py-3 text-right">Contributed</th>
+                      <th className="px-5 py-3 text-center">Status</th>
+                      <th className="px-5 py-3 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {filteredStudents.map(({ member, paid, status }) => (
+                      <tr 
+                        key={member.uid} 
+                        className={`hover:bg-slate-50/50 cursor-pointer transition ${selectedStudentDetail?.uid === member.uid ? "bg-slate-50" : ""}`}
+                        onClick={() => setSelectedStudentDetail(member)}
+                      >
+                        <td className="px-5 py-3.5 font-bold text-slate-950 flex items-center gap-2">
+                          <div className="h-6 w-6 rounded-full bg-slate-100 text-[10px] text-slate-700 font-bold flex items-center justify-center border border-slate-200">
+                            {member.name.charAt(0)}
+                          </div>
+                          <span>{member.name}</span>
+                        </td>
+                        <td className="px-5 py-3.5 font-medium text-slate-500 font-mono text-[10px]">{member.studentId || "—"}</td>
+                        <td className="px-5 py-3.5 text-right font-bold text-slate-900">₱{paid.toLocaleString()}</td>
+                        <td className="px-5 py-3.5 text-center">
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                            status === "Paid" ? "bg-emerald-100 text-emerald-800" :
+                            status === "Partial" ? "bg-amber-100 text-amber-800" :
+                            "bg-red-100 text-red-800"
+                          }`}>
+                            {status}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 text-center">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedStudentForPayment(member);
+                              setSelectedPaymentForEdit(undefined);
+                              setShowPaymentModal(true);
+                            }}
+                            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold px-2 py-1 rounded text-[10px] transition"
+                          >
+                            + Record
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredStudents.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="px-5 py-12 text-center text-slate-400 font-medium italic">
+                          No classroom student accounts match these filters.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Student details column view - Right */}
+            {selectedStudentDetail && (
+              <div className="lg:col-span-5">
+                {renderStudentDetailView()}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 3. PAYMENTS TAB */}
+        {activeTab === "payments" && (
+          <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm text-left space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-extrabold text-slate-950 text-base">Contribution Payments Ledger</h3>
+                <p className="text-slate-400 text-xs">Verify student payments and corrections in real time.</p>
+              </div>
+              <span className="text-xs text-slate-400 font-bold">{payments.length} log records</span>
+            </div>
+
+            <div className="overflow-hidden rounded-2xl border border-slate-100">
+              <table className="w-full text-xs">
+                <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider">
+                  <tr>
+                    <th className="px-5 py-3 text-left">Date</th>
+                    <th className="px-5 py-3 text-left">Student</th>
+                    <th className="px-5 py-3 text-left">Method</th>
+                    <th className="px-5 py-3 text-left">Reference #</th>
+                    <th className="px-5 py-3 text-left">Notes / Explanations</th>
+                    <th className="px-5 py-3 text-right">Amount</th>
+                    <th className="px-5 py-3 text-center">Correct</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {payments.map(p => (
+                    <tr key={p.id} className="hover:bg-slate-50/50">
+                      <td className="px-5 py-3.5 font-semibold text-slate-900">{p.paymentDate}</td>
+                      <td className="px-5 py-3.5 font-bold text-slate-950">{p.studentName}</td>
+                      <td className="px-5 py-3.5">
+                        <span className="px-2 py-0.5 bg-slate-100 rounded font-semibold text-slate-700">{p.paymentMethod}</span>
+                      </td>
+                      <td className="px-5 py-3.5 font-mono text-[10px] text-slate-500">{p.referenceNumber || "—"}</td>
+                      <td className="px-5 py-3.5 text-slate-500 italic max-w-xs truncate" title={p.notes}>{p.notes || "—"}</td>
+                      <td className="px-5 py-3.5 text-right font-extrabold text-emerald-600">+₱{p.amount.toLocaleString()}</td>
+                      <td className="px-5 py-3 text-center">
+                        <button
+                          onClick={() => {
+                            setSelectedPaymentForEdit(p);
+                            setSelectedStudentForPayment(undefined);
+                            setShowPaymentModal(true);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-slate-900 transition hover:bg-slate-100 rounded-lg"
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {payments.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-5 py-12 text-center text-slate-400 font-medium italic">
+                        No student payment records exist.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* 4. FUND RECORDS TAB */}
+        {activeTab === "funds" && (
+          <div className="space-y-6">
+            
+            {/* Fund Balance Sheet Header */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
+              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Total Income (Contributions)</span>
+                <span className="text-xl font-extrabold text-emerald-600">₱{totalCollected.toLocaleString()}</span>
+              </div>
+              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Total Expenses Statement</span>
+                <span className="text-xl font-extrabold text-red-600">₱{totalExpenses.toLocaleString()}</span>
+              </div>
+              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Remaining Balance Sheet</span>
+                <span className="text-xl font-extrabold text-slate-950">₱{fundBalance.toLocaleString()}</span>
+              </div>
+            </div>
+
+            {/* Income and Expenses sequential statement (As requested in Item 14: "CLASSROOM FUND RECORDS") */}
+            <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm text-left space-y-4">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                <div>
+                  <h3 className="font-extrabold text-slate-950 text-base">Class Ledger History</h3>
+                  <p className="text-slate-400 text-xs">Official sequential fund audit statement.</p>
+                </div>
+                <span className="text-xs text-slate-400 font-bold">{financialRecords.length} statements</span>
+              </div>
+
+              <div className="overflow-hidden rounded-2xl border border-slate-100">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider">
+                    <tr>
+                      <th className="px-5 py-3 text-left">Date</th>
+                      <th className="px-5 py-3 text-left">Description</th>
+                      <th className="px-5 py-3 text-left">Reference / Source</th>
+                      <th className="px-5 py-3 text-right">Income</th>
+                      <th className="px-5 py-3 text-right">Expense</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {financialRecords.map((rec, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50/50">
+                        <td className="px-5 py-3.5 font-semibold text-slate-500 font-mono text-[10px]">{rec.date}</td>
+                        <td className="px-5 py-3.5 font-bold text-slate-950">{rec.description}</td>
+                        <td className="px-5 py-3.5 font-semibold text-slate-600">{rec.reference}</td>
+                        <td className="px-5 py-3.5 text-right font-extrabold text-emerald-600">
+                          {rec.income > 0 ? `+₱${rec.income.toLocaleString()}` : "—"}
+                        </td>
+                        <td className="px-5 py-3.5 text-right font-extrabold text-red-600">
+                          {rec.expense > 0 ? `-₱${rec.expense.toLocaleString()}` : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                    {financialRecords.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="px-5 py-12 text-center text-slate-400 font-medium italic">
+                          No accounting ledger records yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 5. REPORTS TAB */}
+        {activeTab === "reports" && <ReportView />}
+
+        {/* 6. INVITE STUDENTS TAB */}
+        {activeTab === "invite" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+            <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-5">
+              <div>
+                <h3 className="font-extrabold text-slate-950 text-base">Student Invitation System</h3>
+                <p className="text-slate-400 text-xs">Generate unique code invitations for students to join.</p>
+              </div>
+
+              {/* Status Area */}
+              <div className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Invitation Status</span>
+                  <span className={`text-xs font-black uppercase tracking-wider ${classroom.inviteStatus === "active" ? "text-emerald-600" : "text-slate-400"}`}>
+                    {classroom.inviteStatus === "active" ? "● Active" : "○ Deactivated"}
+                  </span>
+                </div>
+                <button
+                  onClick={toggleInviteStatus}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                    classroom.inviteStatus === "active"
+                      ? "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                      : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-600/10"
+                  }`}
+                >
+                  {classroom.inviteStatus === "active" ? "Deactivate" : "Activate"}
+                </button>
+              </div>
+
+              {/* Code */}
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Classroom Invite Code</span>
+                <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-center justify-between">
+                  <span className="font-black text-emerald-950 text-xl tracking-widest">{classroom.inviteCode}</span>
+                  <button onClick={handleCopyCode} className="text-emerald-700 hover:text-emerald-950 p-2 hover:bg-emerald-100/50 rounded-xl transition">
+                    {copiedCode ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Link */}
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Invitation Web URL</span>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    className="flex-grow bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 font-mono outline-none"
+                    value={getInviteLink()}
+                  />
+                  <button
+                    onClick={handleCopyLink}
+                    className="bg-slate-950 hover:bg-slate-900 text-white font-semibold text-xs py-2 px-3.5 rounded-xl transition flex items-center gap-1 shrink-0"
+                  >
+                    {copiedLink ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    {copiedLink ? "Copied" : "Copy"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/50 flex items-start gap-2.5">
+                <ShieldCheck className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
+                <p className="text-[10px] text-slate-500 leading-relaxed font-semibold">
+                  Secure Onboarding: Students will complete their official student bio profile upon clicking this invitation link. Joined profiles are securely saved to your class.
+                </p>
+              </div>
+            </div>
+
+            {/* QR Invite View */}
+            <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col items-center justify-center text-center space-y-4">
+              <div>
+                <h3 className="font-extrabold text-slate-950 text-sm">Class Invitation QR Code</h3>
+                <p className="text-slate-400 text-xs">Students scan this QR to complete their profile and join instantly.</p>
+              </div>
+
+              <div className="border border-slate-200/80 p-2.5 bg-white rounded-2xl shadow-inner shadow-slate-50">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(getInviteLink())}`}
+                  alt="Invite QR Code"
+                  referrerPolicy="no-referrer"
+                  className="w-44 h-44"
+                />
+              </div>
+
+              <span className="text-[10px] text-slate-400 italic">SY {classroom.schoolYear} &bull; {classroom.name} Invitation QR</span>
+            </div>
+          </div>
+        )}
+
+        {/* 7. AUDIT LOGS TAB */}
+        {activeTab === "audit" && (
+          <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm text-left space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-extrabold text-slate-950 text-base">Classroom Audit Logs</h3>
+                <p className="text-slate-400 text-xs">Comprehensive tracking log of database modifications.</p>
+              </div>
+              <span className="text-xs text-slate-400 font-bold">{auditLogs.length} entries</span>
+            </div>
+
+            <div className="space-y-2 max-h-[460px] overflow-y-auto pr-2">
+              {auditLogs.map((log, idx) => (
+                <div key={log.id || idx} className="p-3 bg-slate-50 border border-slate-200/60 rounded-xl flex items-start gap-3 text-xs">
+                  <div className={`p-1.5 rounded-lg shrink-0 mt-0.5 ${
+                    log.action.includes("Payment") ? "bg-emerald-100 text-emerald-800" :
+                    log.action.includes("Expense") ? "bg-amber-100 text-amber-800" :
+                    "bg-slate-200 text-slate-700"
+                  }`}>
+                    <Clock className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="flex-grow space-y-1">
+                    <div className="flex justify-between items-center gap-2">
+                      <span className="font-bold text-slate-900">{log.action}</span>
+                      <span className="text-[10px] text-slate-400 font-mono">{new Date(log.timestamp).toLocaleString()}</span>
+                    </div>
+                    <p className="text-slate-600 font-medium">{log.details}</p>
+                    <div className="text-[10px] text-slate-400 font-semibold uppercase">
+                      By: {log.userName} ({log.userRole})
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {auditLogs.length === 0 && (
+                <div className="py-12 text-center text-slate-400 italic font-medium text-xs">No audit logs logged in database.</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 8. SETTINGS TAB */}
+        {activeTab === "settings" && (
+          <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm text-left max-w-xl mx-auto space-y-5">
+            <div>
+              <h3 className="font-extrabold text-slate-950 text-base">Classroom Settings</h3>
+              <p className="text-slate-400 text-xs">Update your funding parameters and class descriptors.</p>
+            </div>
+
+            {/* Editable config form */}
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const nameValue = formData.get("name") as string;
+              const schoolValue = formData.get("school") as string;
+              const syValue = formData.get("schoolYear") as string;
+              const goalValue = Number(formData.get("contributionGoal"));
+              const descValue = formData.get("description") as string;
+
+              if (nameValue && schoolValue && goalValue) {
+                await updateClassroomSettings({
+                  name: nameValue,
+                  school: schoolValue,
+                  schoolYear: syValue,
+                  contributionGoal: goalValue,
+                  description: descValue
+                });
+                alert("Classroom settings updated successfully!");
+              }
+            }} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Classroom Name</label>
+                <input
+                  type="text"
+                  name="name"
+                  defaultValue={classroom.name}
+                  required
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-semibold text-slate-950 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">School / Institution</label>
+                <input
+                  type="text"
+                  name="school"
+                  defaultValue={classroom.school}
+                  required
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-semibold text-slate-950 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">School Year</label>
+                  <input
+                    type="text"
+                    name="schoolYear"
+                    defaultValue={classroom.schoolYear}
+                    required
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-semibold text-slate-950 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Contribution Goal (₱)</label>
+                  <input
+                    type="number"
+                    name="contributionGoal"
+                    defaultValue={classroom.contributionGoal}
+                    required
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold text-slate-950 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Description (Optional)</label>
+                <textarea
+                  name="description"
+                  defaultValue={classroom.description}
+                  rows={2}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-semibold text-slate-950 focus:outline-none resize-none"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-slate-950 hover:bg-slate-900 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm"
+              >
+                Save Settings Adjustments
+              </button>
+            </form>
+          </div>
+        )}
+      </main>
+
+      {/* --- MODAL RENDERING WINDOWS --- */}
+      {showPaymentModal && (
+        <PaymentModal
+          onClose={() => {
+            setShowPaymentModal(false);
+            setSelectedStudentForPayment(undefined);
+            setSelectedPaymentForEdit(undefined);
+          }}
+          student={selectedStudentForPayment}
+          paymentToEdit={selectedPaymentForEdit}
+        />
+      )}
+
+      {showExpenseModal && (
+        <ExpenseModal
+          onClose={() => setShowExpenseModal(false)}
+        />
+      )}
+    </div>
+  );
+};

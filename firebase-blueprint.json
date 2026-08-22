@@ -1,0 +1,133 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile with role-based attributes",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["treasurer", "student"] },
+        "studentId": { "type": "string" },
+        "program": { "type": "string" },
+        "yearLevel": { "type": "string" },
+        "section": { "type": "string" },
+        "contact": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "email", "role", "createdAt"]
+    },
+    "Classroom": {
+      "title": "Classroom",
+      "description": "A class fund management workspace",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "school": { "type": "string" },
+        "program": { "type": "string" },
+        "yearLevel": { "type": "string" },
+        "section": { "type": "string" },
+        "schoolYear": { "type": "string" },
+        "contributionGoal": { "type": "number" },
+        "description": { "type": "string" },
+        "treasurerId": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "inviteCode": { "type": "string" },
+        "inviteExpiresAt": { "type": "string" },
+        "inviteStatus": { "type": "string", "enum": ["active", "inactive"] }
+      },
+      "required": ["name", "school", "program", "yearLevel", "section", "schoolYear", "contributionGoal", "treasurerId", "createdAt", "inviteCode", "inviteStatus"]
+    },
+    "Member": {
+      "title": "Classroom Member",
+      "description": "User association with a specific classroom",
+      "type": "object",
+      "properties": {
+        "role": { "type": "string", "enum": ["treasurer", "student"] },
+        "joinedAt": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "studentId": { "type": "string" }
+      },
+      "required": ["role", "joinedAt", "status", "name", "email"]
+    },
+    "Payment": {
+      "title": "Payment Record",
+      "description": "Payment record for a student contribution",
+      "type": "object",
+      "properties": {
+        "classroomId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "amount": { "type": "number" },
+        "paymentMethod": { "type": "string", "enum": ["Cash", "GCash", "Bank Transfer", "Other"] },
+        "referenceNumber": { "type": "string" },
+        "paymentDate": { "type": "string" },
+        "recordedBy": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["classroomId", "studentId", "studentName", "amount", "paymentMethod", "paymentDate", "recordedBy", "createdAt"]
+    },
+    "Expense": {
+      "title": "Expense Record",
+      "description": "Classroom fund expense",
+      "type": "object",
+      "properties": {
+        "classroomId": { "type": "string" },
+        "description": { "type": "string" },
+        "amount": { "type": "number" },
+        "category": { "type": "string" },
+        "receiptURL": { "type": "string" },
+        "recordedBy": { "type": "string" },
+        "paidTo": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["classroomId", "description", "amount", "category", "recordedBy", "paidTo", "createdAt"]
+    },
+    "AuditLog": {
+      "title": "Audit Log",
+      "description": "Log of financial actions inside a classroom",
+      "type": "object",
+      "properties": {
+        "classroomId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userRole": { "type": "string", "enum": ["treasurer", "student"] },
+        "action": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["classroomId", "userId", "userName", "userRole", "action", "details", "timestamp"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles registered in the system"
+    },
+    "classrooms/{classroomId}": {
+      "schema": { "$ref": "#/entities/Classroom" },
+      "description": "Classrooms managed by treasurers"
+    },
+    "classrooms/{classroomId}/members/{userId}": {
+      "schema": { "$ref": "#/entities/Member" },
+      "description": "Members of a specific classroom"
+    },
+    "payments/{paymentId}": {
+      "schema": { "$ref": "#/entities/Payment" },
+      "description": "Payments logged against classrooms"
+    },
+    "expenses/{expenseId}": {
+      "schema": { "$ref": "#/entities/Expense" },
+      "description": "Expenses logged against classrooms"
+    },
+    "auditLogs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "Audit trail logs for classrooms"
+    }
+  }
+}

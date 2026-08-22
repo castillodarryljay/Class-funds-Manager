@@ -1,0 +1,85 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Check if user is logged in
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Check if user is the owner of the user document
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    // Check if user is a member of the classroom
+    function isClassroomMember(classroomId, userId) {
+      return exists(/databases/$(database)/documents/classrooms/$(classroomId)/members/$(userId));
+    }
+    
+    // Check if user is the treasurer of a specific classroom
+    function isClassroomTreasurer(classroomId) {
+      return get(/databases/$(database)/documents/classrooms/$(classroomId)).data.treasurerId == request.auth.uid;
+    }
+
+    // --- Users ---
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(userId);
+    }
+    
+    // --- Classrooms ---
+    match /classrooms/{classroomId} {
+      allow create: if isSignedIn() && request.resource.data.treasurerId == request.auth.uid;
+      allow read: if isSignedIn() && (resource.data.treasurerId == request.auth.uid || isClassroomMember(classroomId, request.auth.uid));
+      allow update, delete: if isSignedIn() && resource.data.treasurerId == request.auth.uid;
+      
+      // --- Classroom Members ---
+      match /members/{userId} {
+        allow read: if isSignedIn() && (isClassroomTreasurer(classroomId) || isClassroomMember(classroomId, request.auth.uid));
+        // A student can join (write their own member record) or the treasurer can manage members
+        allow write: if isSignedIn() && (
+          isClassroomTreasurer(classroomId) || 
+          (request.auth.uid == userId && request.resource.data.role == "student" && request.resource.data.status == "active")
+        );
+      }
+    }
+    
+    // --- Payments ---
+    match /payments/{paymentId} {
+      allow read: if isSignedIn() && (
+        isClassroomTreasurer(resource.data.classroomId) || 
+        resource.data.studentId == request.auth.uid
+      );
+      allow create: if isSignedIn() && isClassroomTreasurer(request.resource.data.classroomId);
+      allow update: if isSignedIn() && isClassroomTreasurer(resource.data.classroomId) && isClassroomTreasurer(request.resource.data.classroomId);
+      allow delete: if isSignedIn() && isClassroomTreasurer(resource.data.classroomId);
+    }
+    
+    // --- Expenses ---
+    match /expenses/{expenseId} {
+      allow read: if isSignedIn() && (
+        isClassroomTreasurer(resource.data.classroomId) || 
+        isClassroomMember(resource.data.classroomId, request.auth.uid)
+      );
+      allow write: if isSignedIn() && (
+        isClassroomTreasurer(request.resource.data.classroomId) || 
+        (resource != null && isClassroomTreasurer(resource.data.classroomId))
+      );
+    }
+    
+    // --- Audit Logs ---
+    match /auditLogs/{logId} {
+      allow read: if isSignedIn() && (
+        isClassroomTreasurer(resource.data.classroomId) || 
+        isClassroomMember(resource.data.classroomId, request.auth.uid)
+      );
+      // Anyone who is a member can write logs, or the treasurer, or a user who is currently joining
+      allow create: if isSignedIn() && (
+        isClassroomTreasurer(request.resource.data.classroomId) || 
+        isClassroomMember(request.resource.data.classroomId, request.auth.uid) ||
+        request.resource.data.action == "Student Joined"
+      );
+    }
+  }
+}
