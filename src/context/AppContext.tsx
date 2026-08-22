@@ -117,27 +117,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setError("Failed to load user profile: " + err.message);
         }
       } else {
-        // If not logged in, check if there is a sandbox session in localStorage
-        const cachedSandbox = localStorage.getItem("class_funds_sandbox_user");
-        if (cachedSandbox) {
-          try {
-            const sandboxUser = JSON.parse(cachedSandbox) as UserProfile;
-            setUser(sandboxUser);
-            setIsSandbox(true);
-            if (sandboxUser.role === "student") {
-              await fetchStudentClassroom(sandboxUser.uid);
-            } else {
-              await fetchTreasurerClassrooms(sandboxUser.uid);
-            }
-          } catch (e) {
-            setUser(null);
-            localStorage.removeItem("class_funds_sandbox_user");
-          }
-        } else {
-          setUser(null);
-          setClassroom(null);
-          setClassrooms([]);
-        }
+        setUser(null);
+        setClassroom(null);
+        setClassrooms([]);
       }
       setLoading(false);
     });

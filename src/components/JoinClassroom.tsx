@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import { db } from "../firebase";
 import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
-import { Landmark, Sparkles, User, GraduationCap, CheckCircle } from "lucide-react";
+import { Sparkles, User, GraduationCap, CheckCircle } from "lucide-react";
+import { AppLogo } from "./AppLogo";
 import { Classroom } from "../types";
 
 interface JoinClassroomProps {
@@ -11,7 +12,7 @@ interface JoinClassroomProps {
 }
 
 export const JoinClassroom: React.FC<JoinClassroomProps> = ({ inviteCode, onJoined }) => {
-  const { user, joinClassroomByCode, error, setError, signInGoogle, loginSandboxUser } = useApp();
+  const { user, joinClassroomByCode, error, setError, signInGoogle } = useApp();
   const [classroomInfo, setClassroomInfo] = useState<Classroom | null>(null);
   const [treasurerName, setTreasurerName] = useState("The Classroom Treasurer");
   const [loadingClass, setLoadingClass] = useState(true);
@@ -152,15 +153,6 @@ export const JoinClassroom: React.FC<JoinClassroomProps> = ({ inviteCode, onJoin
     }
   };
 
-  const handleSandboxJoin = async () => {
-    try {
-      // Create a student demo account instantly and trigger joining
-      await loginSandboxUser("student", "Juan Dela Cruz");
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
   if (loadingClass) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -196,8 +188,8 @@ export const JoinClassroom: React.FC<JoinClassroomProps> = ({ inviteCode, onJoin
           <div className="absolute top-4 right-4 bg-emerald-500/15 text-emerald-400 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-emerald-500/20">
             Invite Link
           </div>
-          <div className="bg-emerald-500/20 text-emerald-400 p-2.5 rounded-2xl w-fit mx-auto border border-emerald-500/30">
-            <Landmark className="h-6 w-6" />
+          <div className="flex justify-center mb-1">
+            <AppLogo size="lg" />
           </div>
           <div className="space-y-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">You&apos;ve been invited!</span>
@@ -230,19 +222,6 @@ export const JoinClassroom: React.FC<JoinClassroomProps> = ({ inviteCode, onJoin
                   <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
                 </svg>
                 Continue with Google
-              </button>
-
-              <div className="relative flex py-2 items-center">
-                <div className="flex-grow border-t border-slate-200"></div>
-                <span className="flex-shrink mx-3 text-slate-400 text-[10px] font-bold uppercase tracking-wider">Or</span>
-                <div className="flex-grow border-t border-slate-200"></div>
-              </div>
-
-              <button
-                onClick={handleSandboxJoin}
-                className="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold py-2 px-4 rounded-xl transition border border-emerald-100"
-              >
-                Instant Sandbox Join (Testing Student Profile)
               </button>
             </div>
           ) : (

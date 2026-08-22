@@ -5,8 +5,9 @@ import { ClassroomCreate } from "./components/ClassroomCreate";
 import { JoinClassroom } from "./components/JoinClassroom";
 import { TreasurerDashboard } from "./components/TreasurerDashboard";
 import { StudentDashboard } from "./components/StudentDashboard";
+import { AppLogo } from "./components/AppLogo";
 import { UserRole } from "./types";
-import { Landmark, ArrowRight, ShieldCheck, LogOut, PlusCircle, CheckCircle, HelpCircle } from "lucide-react";
+import { ArrowRight, ShieldCheck, LogOut, PlusCircle, CheckCircle, HelpCircle } from "lucide-react";
 
 function AppContent() {
   const { user, classroom, classrooms, loading, signOutUser, joinClassroomByCode, error, setError } = useApp();
@@ -66,12 +67,12 @@ function AppContent() {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
-        <div className="bg-emerald-50 text-emerald-600 p-4 rounded-full w-fit mx-auto border border-emerald-100/50 animate-bounce">
-          <Landmark className="h-8 w-8" />
+        <div className="animate-bounce mb-4">
+          <AppLogo size="xl" />
         </div>
-        <div className="space-y-2 mt-4">
+        <div className="space-y-2">
           <h2 className="text-xl font-black text-slate-950 tracking-tight">Accessing Class Funds</h2>
-          <p className="text-slate-400 text-sm font-semibold">Loading secure blockchain transaction databases...</p>
+          <p className="text-slate-400 text-sm font-semibold">Connecting to secure cloud databases...</p>
         </div>
       </div>
     );
@@ -112,8 +113,8 @@ function AppContent() {
       return (
         <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center py-12 px-6" id="treasurer-empty-workspace">
           <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 text-center space-y-6">
-            <div className="bg-emerald-50 text-emerald-600 p-4 rounded-full w-fit mx-auto border border-emerald-100">
-              <Landmark className="h-8 w-8" />
+            <div className="flex justify-center">
+              <AppLogo size="lg" />
             </div>
             
             <div className="space-y-1.5">

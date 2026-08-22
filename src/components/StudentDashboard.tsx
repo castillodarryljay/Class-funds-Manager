@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useApp } from "../context/AppContext";
+import { AppLogo } from "./AppLogo";
 import { 
   DollarSign, 
   Wallet, 
@@ -85,15 +86,7 @@ export const StudentDashboard: React.FC = () => {
       
       {/* Mobile Top Header Bar */}
       <div className="md:hidden flex items-center justify-between bg-slate-950 text-white p-4 sticky top-0 z-40 shadow-md">
-        <div className="flex items-center gap-2">
-          <div className="bg-emerald-600 p-1.5 rounded-lg text-white">
-            <DollarSign className="h-4 w-4" />
-          </div>
-          <div>
-            <span className="font-extrabold text-xs uppercase tracking-wider block leading-none">Class Funds</span>
-            <span className="text-[8px] text-emerald-400 font-bold uppercase tracking-wider block">Student Portal</span>
-          </div>
-        </div>
+        <AppLogo size="sm" showText={true} dark={true} subtitle="Student Portal" />
         <button 
           onClick={() => setIsMobileMenuOpen(true)}
           className="p-2 hover:bg-slate-900 rounded-lg text-slate-400 hover:text-white transition"
@@ -115,15 +108,7 @@ export const StudentDashboard: React.FC = () => {
           <aside className="relative w-64 bg-slate-950 text-white flex flex-col justify-between p-6 h-full shadow-2xl z-50 animate-fade-in text-left">
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="bg-emerald-600 p-1.5 rounded-lg text-white">
-                    <DollarSign className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <span className="font-extrabold text-xs uppercase tracking-wider block leading-none">Class Funds</span>
-                    <span className="text-[8px] text-emerald-400 font-bold uppercase tracking-wider block">Student Portal</span>
-                  </div>
-                </div>
+                <AppLogo size="sm" showText={true} dark={true} subtitle="Student Portal" />
                 <button 
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="p-1 text-slate-400 hover:text-white transition"
@@ -198,15 +183,7 @@ export const StudentDashboard: React.FC = () => {
       <aside className="hidden md:flex w-64 bg-slate-950 text-white flex-col justify-between shrink-0 p-6 md:min-h-screen">
         <div className="space-y-8">
           {/* Logo Brand */}
-          <div className="flex items-center gap-2.5">
-            <div className="bg-emerald-600 p-2 rounded-xl">
-              <DollarSign className="h-5 w-5" />
-            </div>
-            <div>
-              <span className="font-extrabold text-lg tracking-tight uppercase block leading-none">Class Funds</span>
-              <span className="text-[9px] text-emerald-400 font-bold tracking-wider uppercase">Student Portal</span>
-            </div>
-          </div>
+          <AppLogo size="md" showText={true} dark={true} subtitle="Student Portal" />
 
           {/* Student Profile Overview */}
           <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800/80 space-y-3">

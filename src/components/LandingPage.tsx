@@ -1,45 +1,26 @@
 import React, { useState } from "react";
 import { useApp } from "../context/AppContext";
-import { Wallet, Shield, Users, Landmark, FileText, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Shield, Users, FileText, CheckCircle2 } from "lucide-react";
+import { AppLogo } from "./AppLogo";
 
 export const LandingPage: React.FC = () => {
-  const { signInGoogle, loginSandboxUser, error, setError } = useApp();
-  const [showSandboxOptions, setShowSandboxOptions] = useState(false);
-  const [customName, setCustomName] = useState("");
+  const { signInGoogle, error, setError } = useApp();
   const [selectedRole, setSelectedRole] = useState<"treasurer" | "student">(() => {
     return (localStorage.getItem("preferred_login_role") as "treasurer" | "student") || "treasurer";
   });
 
-  const handleSandboxLogin = async () => {
-    try {
-      await loginSandboxUser(selectedRole, customName.trim() || undefined);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-between" id="landing-page">
       {/* Header */}
-      <header className="border-b border-slate-200/80 bg-white/90 backdrop-blur-md sticky top-0 z-50 px-6 py-4">
+      <header className="border-b border-slate-200/80 bg-white/90 backdrop-blur-md sticky top-0 z-50 px-6 py-3.5">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="bg-emerald-600 text-white p-2 rounded-xl shadow-md shadow-emerald-600/10">
-              <Landmark className="h-6 w-6" />
-            </div>
-            <div>
-              <span className="font-extrabold text-xl tracking-tight text-slate-950 uppercase">Class Funds</span>
-              <span className="text-[10px] block font-semibold text-emerald-600 tracking-wider uppercase -mt-0.5">Financial Transparency</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowSandboxOptions(true)}
-              className="text-sm font-semibold text-slate-700 hover:text-emerald-600 transition px-3 py-1.5 rounded-lg hover:bg-slate-100"
-              id="about-system-btn"
-            >
-              Demo Sandbox
-            </button>
+          <AppLogo size="md" showText={true} subtitle="Financial Transparency" />
+          
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-full border border-emerald-100">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Live Cloud Portal
+            </span>
           </div>
         </div>
       </header>
@@ -96,6 +77,11 @@ export const LandingPage: React.FC = () => {
           {/* Hero Right: Sign-In Panel */}
           <div className="lg:col-span-5 bg-white p-8 rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 flex flex-col justify-center text-center">
             
+            {/* Center Logo Above Selector */}
+            <div className="flex justify-center mb-6">
+              <AppLogo size="lg" />
+            </div>
+
             {/* Segmented Tab Selector for Login Role */}
             <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-2xl mb-6">
               <button
@@ -177,58 +163,6 @@ export const LandingPage: React.FC = () => {
                 <p className="text-[10px] text-emerald-600 font-semibold">
                   * Join your class instantly by signing in and entering your invite code.
                 </p>
-              )}
-
-              <div className="relative flex py-2 items-center">
-                <div className="flex-grow border-t border-slate-200"></div>
-                <span className="flex-shrink mx-4 text-slate-400 text-[10px] font-bold uppercase tracking-widest">Or Sandbox Demo</span>
-                <div className="flex-grow border-t border-slate-200"></div>
-              </div>
-
-              {/* Fast Sandbox Options for reviewing inside the IFrame */}
-              {!showSandboxOptions ? (
-                <button
-                  onClick={() => setShowSandboxOptions(true)}
-                  className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold py-2.5 px-6 rounded-xl transition flex items-center justify-center gap-2 border border-slate-200/60 text-xs cursor-pointer"
-                  id="show-sandbox-options-btn"
-                >
-                  Quick Sandbox Demo ({selectedRole === "treasurer" ? "Treasurer" : "Student"})
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </button>
-              ) : (
-                <div className="bg-slate-50 border border-slate-200/80 p-5 rounded-2xl text-left space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-950 uppercase tracking-wider">Demo / Sandbox Login</span>
-                    <button 
-                      onClick={() => setShowSandboxOptions(false)}
-                      className="text-slate-400 hover:text-slate-600 text-xs font-semibold cursor-pointer"
-                    >
-                      Hide
-                    </button>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Testing Name</label>
-                    <input
-                      type="text"
-                      className="w-full text-sm bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:border-emerald-600"
-                      placeholder={selectedRole === "treasurer" ? "e.g. Darryl Jay" : "e.g. Juan Dela Cruz"}
-                      value={customName}
-                      onChange={(e) => setCustomName(e.target.value)}
-                    />
-                  </div>
-
-                  <button
-                    onClick={handleSandboxLogin}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg text-xs transition cursor-pointer"
-                    id="submit-sandbox-login-btn"
-                  >
-                    Login as Sandbox {selectedRole === "treasurer" ? "Treasurer" : "Student"}
-                  </button>
-                  <p className="text-[10px] text-slate-400 text-center leading-normal mt-1">
-                    * Bypasses Google popup blocker. Writes to real Firestore database.
-                  </p>
-                </div>
               )}
             </div>
           </div>

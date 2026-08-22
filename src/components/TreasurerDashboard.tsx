@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useApp } from "../context/AppContext";
+import { AppLogo } from "./AppLogo";
 import { 
   Landmark, 
   Users, 
@@ -287,15 +288,7 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
       
       {/* Mobile Sticky Top Header */}
       <div className="md:hidden flex items-center justify-between bg-slate-950 text-white p-4 sticky top-0 z-40 shadow-md">
-        <div className="flex items-center gap-2">
-          <div className="bg-emerald-600 text-white p-1.5 rounded-lg">
-            <Landmark className="h-4 w-4" />
-          </div>
-          <div>
-            <span className="font-extrabold text-xs tracking-tight uppercase block leading-none">Class Funds</span>
-            <span className="text-[8px] text-emerald-400 font-bold tracking-wider uppercase block mt-0.5">Treasurer Console</span>
-          </div>
-        </div>
+        <AppLogo size="sm" showText={true} dark={true} subtitle="Treasurer Console" />
         <button 
           onClick={() => setIsMobileMenuOpen(true)}
           className="p-2 hover:bg-slate-900 rounded-lg text-slate-400 hover:text-white transition"
@@ -317,15 +310,7 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
           <aside className="relative w-64 bg-slate-950 text-white flex flex-col justify-between p-6 h-full shadow-2xl z-50 animate-fade-in text-left">
             <div className="space-y-6 overflow-y-auto max-h-[85vh] pr-1">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="bg-emerald-600 text-white p-1.5 rounded-lg">
-                    <Landmark className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <span className="font-extrabold text-xs tracking-tight uppercase block leading-none">Class Funds</span>
-                    <span className="text-[8px] text-emerald-400 font-bold tracking-wider uppercase block mt-0.5">Treasurer Console</span>
-                  </div>
-                </div>
+                <AppLogo size="sm" showText={true} dark={true} subtitle="Treasurer Console" />
                 <button 
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="p-1 text-slate-400 hover:text-white transition"
@@ -443,15 +428,7 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
       <aside className="hidden md:flex w-64 bg-slate-950 text-white flex-col justify-between shrink-0 p-6 md:min-h-screen border-r border-slate-800">
         <div className="space-y-8">
           {/* Brand logo */}
-          <div className="flex items-center gap-2.5">
-            <div className="bg-emerald-600 text-white p-2 rounded-xl shadow-md">
-              <Landmark className="h-5 w-5" />
-            </div>
-            <div>
-              <span className="font-extrabold text-lg tracking-tight uppercase block leading-none">Class Funds</span>
-              <span className="text-[9px] text-emerald-400 font-bold tracking-wider uppercase block -mt-0.5">Treasurer Console</span>
-            </div>
-          </div>
+          <AppLogo size="md" showText={true} dark={true} subtitle="Treasurer Console" />
 
           {/* Active Workspace Select */}
           <div className="space-y-1 text-left">

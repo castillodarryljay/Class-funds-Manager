@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useApp } from "../context/AppContext";
-import { Landmark, ArrowLeft, PlusCircle, Sparkles, Copy, Check, Share2, QrCode } from "lucide-react";
+import { ArrowLeft, PlusCircle, Sparkles, Copy, Check, Share2, QrCode } from "lucide-react";
+import { AppLogo } from "./AppLogo";
 import { Classroom } from "../types";
 
 interface ClassroomCreateProps {
@@ -157,10 +158,8 @@ export const ClassroomCreate: React.FC<ClassroomCreateProps> = ({ onBack, onCrea
       ) : (
         /* Form view */
         <div className="bg-white p-8 rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 space-y-6">
-          <div className="flex items-center gap-2.5">
-            <div className="bg-emerald-100 text-emerald-800 p-2.5 rounded-xl">
-              <Landmark className="h-5 w-5" />
-            </div>
+          <div className="flex items-center gap-3">
+            <AppLogo size="sm" />
             <div>
               <h2 className="text-xl font-extrabold text-slate-950 tracking-tight">Create Classroom Workspace</h2>
               <p className="text-xs text-slate-500">Configure your classroom fund targets and profile.</p>
