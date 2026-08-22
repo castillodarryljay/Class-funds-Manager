@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { useApp } from "../context/AppContext";
 import { AppLogo } from "./AppLogo";
+import { OnboardingTour } from "./OnboardingTour";
+import { TermsModal } from "./TermsModal";
 import { 
   DollarSign, 
   Wallet, 
@@ -16,7 +18,8 @@ import {
   Sparkles,
   Award,
   Menu,
-  X
+  X,
+  ShieldCheck
 } from "lucide-react";
 import html2canvas from "html2canvas-pro";
 import { motion } from "motion/react";
@@ -27,6 +30,12 @@ export const StudentDashboard: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [exportingImage, setExportingImage] = useState(false);
   const [exportedImageSrc, setExportedImageSrc] = useState<string | null>(null);
+
+  // Onboarding & Terms state
+  const [showTour, setShowTour] = useState<boolean>(() => {
+    return !localStorage.getItem(`tour_completed_student_${user?.uid}`);
+  });
+  const [showTerms, setShowTerms] = useState<boolean>(false);
 
   if (!user || !classroom) {
     return (
@@ -168,13 +177,33 @@ export const StudentDashboard: React.FC = () => {
               </nav>
             </div>
 
-            {/* Logout Bottom */}
-            <button
-              onClick={signOutUser}
-              className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition flex items-center gap-2.5 text-left mt-8"
-            >
-              <LogOut className="h-4 w-4" /> Log Out Account
-            </button>
+            {/* Bottom Navigation / Actions */}
+            <div className="space-y-1 pt-4 border-t border-slate-800 mt-6">
+              <button
+                onClick={() => {
+                  setShowTour(true);
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-emerald-400 hover:bg-emerald-500/10 transition flex items-center gap-2.5 text-left"
+              >
+                <HelpCircle className="h-4 w-4" /> Quick Overview Tour
+              </button>
+              <button
+                onClick={() => {
+                  setShowTerms(true);
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-900 transition flex items-center gap-2.5 text-left"
+              >
+                <ShieldCheck className="h-4 w-4" /> Terms of Service
+              </button>
+              <button
+                onClick={signOutUser}
+                className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition flex items-center gap-2.5 text-left"
+              >
+                <LogOut className="h-4 w-4" /> Log Out Account
+              </button>
+            </div>
           </aside>
         </div>
       )}
@@ -230,13 +259,27 @@ export const StudentDashboard: React.FC = () => {
           </nav>
         </div>
 
-        {/* Logout Bottom */}
-        <button
-          onClick={signOutUser}
-          className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition flex items-center gap-2.5 text-left mt-8 md:mt-0"
-        >
-          <LogOut className="h-4 w-4" /> Log Out Account
-        </button>
+        {/* Bottom Actions Desktop */}
+        <div className="space-y-1 pt-4 border-t border-slate-800 mt-8 md:mt-0">
+          <button
+            onClick={() => setShowTour(true)}
+            className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-emerald-400 hover:bg-emerald-500/10 transition flex items-center gap-2.5 text-left"
+          >
+            <HelpCircle className="h-4 w-4" /> Quick Overview Tour
+          </button>
+          <button
+            onClick={() => setShowTerms(true)}
+            className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-900 transition flex items-center gap-2.5 text-left"
+          >
+            <ShieldCheck className="h-4 w-4" /> Terms of Service
+          </button>
+          <button
+            onClick={signOutUser}
+            className="w-full py-2 px-3 rounded-xl text-xs font-bold text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition flex items-center gap-2.5 text-left"
+          >
+            <LogOut className="h-4 w-4" /> Log Out Account
+          </button>
+        </div>
       </aside>
 
       {/* Main Panel Content */}
@@ -515,6 +558,24 @@ export const StudentDashboard: React.FC = () => {
           </motion.div>
         </motion.div>
       )}
+
+      {/* Onboarding Tour for Students */}
+      {showTour && (
+        <OnboardingTour
+          role="student"
+          userName={user.name}
+          onComplete={() => {
+            localStorage.setItem(`tour_completed_student_${user.uid}`, "true");
+            setShowTour(false);
+          }}
+        />
+      )}
+
+      {/* Terms of Service Modal */}
+      <TermsModal
+        isOpen={showTerms}
+        onClose={() => setShowTerms(false)}
+      />
     </div>
   );
 };

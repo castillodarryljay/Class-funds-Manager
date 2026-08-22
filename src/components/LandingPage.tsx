@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
-import { Shield, Users, FileText, CheckCircle2, Download } from "lucide-react";
+import { Shield, Users, FileText, CheckCircle2, Download, FileLock2 } from "lucide-react";
 import { AppLogo } from "./AppLogo";
+import { TermsModal } from "./TermsModal";
 
 export const LandingPage: React.FC = () => {
   const { signInGoogle, error, setError } = useApp();
@@ -10,6 +11,7 @@ export const LandingPage: React.FC = () => {
   });
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState<boolean>(false);
+  const [showTerms, setShowTerms] = useState<boolean>(false);
 
   useEffect(() => {
     const handleBeforeInstall = (e: Event) => {
@@ -223,14 +225,22 @@ export const LandingPage: React.FC = () => {
             Designed by <span className="font-bold text-emerald-600">Darryl jay Castillo (SHIRO)</span>
           </p>
           <div className="flex items-center gap-4 text-[11px]">
-            <span className="text-slate-400">Firebase Firestore</span>
+            <button
+              onClick={() => setShowTerms(true)}
+              className="text-slate-500 hover:text-emerald-600 font-semibold underline underline-offset-2 transition cursor-pointer"
+            >
+              Terms of Service & Privacy
+            </button>
             <span className="text-slate-300">&bull;</span>
-            <span className="text-slate-400">Secure Audit Logs</span>
+            <span className="text-slate-400">Firebase Firestore</span>
             <span className="text-slate-300">&bull;</span>
             <span className="text-emerald-600 font-bold">SHIRO &bull; Creator</span>
           </div>
         </div>
       </footer>
+
+      {/* Terms of Service Modal */}
+      <TermsModal isOpen={showTerms} onClose={() => setShowTerms(false)} />
     </div>
   );
 };

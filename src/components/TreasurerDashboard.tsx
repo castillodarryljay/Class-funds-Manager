@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { useApp } from "../context/AppContext";
 import { AppLogo } from "./AppLogo";
+import { OnboardingTour } from "./OnboardingTour";
+import { TermsModal } from "./TermsModal";
 import { 
   Landmark, 
   Users, 
@@ -27,7 +29,8 @@ import {
   ToggleLeft,
   ToggleRight,
   Menu,
-  X
+  X,
+  HelpCircle
 } from "lucide-react";
 import { PaymentModal } from "./PaymentModal";
 import { ExpenseModal } from "./ExpenseModal";
@@ -70,6 +73,12 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
   // Copy controllers
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+
+  // Onboarding & Terms state
+  const [showTour, setShowTour] = useState<boolean>(() => {
+    return !localStorage.getItem(`tour_completed_treasurer_${user?.uid}`);
+  });
+  const [showTerms, setShowTerms] = useState<boolean>(false);
 
   if (!user || classrooms.length === 0 || !classroom) {
     return null; // Safety, App.tsx handles loading or empty workspace redirect
@@ -413,13 +422,33 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
               </nav>
             </div>
 
-            {/* Logout button */}
-            <button
-              onClick={signOutUser}
-              className="w-full py-2.5 px-3 rounded-xl text-xs font-bold text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition flex items-center gap-2.5 text-left mt-8"
-            >
-              <LogOut className="h-4 w-4" /> Log Out Account
-            </button>
+            {/* Bottom action buttons */}
+            <div className="space-y-1 pt-4 border-t border-slate-800 mt-6">
+              <button
+                onClick={() => {
+                  setShowTour(true);
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-emerald-400 hover:bg-emerald-500/10 transition flex items-center gap-2.5 text-left"
+              >
+                <HelpCircle className="h-4 w-4" /> Quick Overview Tour
+              </button>
+              <button
+                onClick={() => {
+                  setShowTerms(true);
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-900 transition flex items-center gap-2.5 text-left"
+              >
+                <ShieldCheck className="h-4 w-4" /> Terms of Service
+              </button>
+              <button
+                onClick={signOutUser}
+                className="w-full py-2.5 px-3 rounded-xl text-xs font-bold text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition flex items-center gap-2.5 text-left"
+              >
+                <LogOut className="h-4 w-4" /> Log Out Account
+              </button>
+            </div>
           </aside>
         </div>
       )}
@@ -514,13 +543,27 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
           </nav>
         </div>
 
-        {/* Logout button */}
-        <button
-          onClick={signOutUser}
-          className="w-full py-2 px-3 rounded-xl text-xs font-bold text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition flex items-center gap-2.5 text-left mt-8 md:mt-0"
-        >
-          <LogOut className="h-4 w-4" /> Log Out Account
-        </button>
+        {/* Bottom actions */}
+        <div className="space-y-1 pt-4 border-t border-slate-800">
+          <button
+            onClick={() => setShowTour(true)}
+            className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-emerald-400 hover:bg-emerald-500/10 transition flex items-center gap-2.5 text-left"
+          >
+            <HelpCircle className="h-4 w-4" /> Quick Overview Tour
+          </button>
+          <button
+            onClick={() => setShowTerms(true)}
+            className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-900 transition flex items-center gap-2.5 text-left"
+          >
+            <ShieldCheck className="h-4 w-4" /> Terms of Service
+          </button>
+          <button
+            onClick={signOutUser}
+            className="w-full py-2 px-3 rounded-xl text-xs font-bold text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition flex items-center gap-2.5 text-left"
+          >
+            <LogOut className="h-4 w-4" /> Log Out Account
+          </button>
+        </div>
       </aside>
 
       {/* Main Panel Area */}
@@ -1172,6 +1215,24 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
           onClose={() => setShowExpenseModal(false)}
         />
       )}
+
+      {/* Onboarding Tour for Treasurers */}
+      {showTour && (
+        <OnboardingTour
+          role="treasurer"
+          userName={user.name}
+          onComplete={() => {
+            localStorage.setItem(`tour_completed_treasurer_${user.uid}`, "true");
+            setShowTour(false);
+          }}
+        />
+      )}
+
+      {/* Terms of Service & Privacy Modal */}
+      <TermsModal
+        isOpen={showTerms}
+        onClose={() => setShowTerms(false)}
+      />
     </div>
   );
 };
