@@ -8,7 +8,9 @@ interface RoleSelectionProps {
 }
 
 export const RoleSelection: React.FC<RoleSelectionProps> = ({ onRoleSelected }) => {
-  const [selected, setSelected] = useState<UserRole | null>(null);
+  const [selected, setSelected] = useState<UserRole | null>(() => {
+    return (localStorage.getItem("preferred_login_role") as UserRole) || null;
+  });
   const [accessCode, setAccessCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import { Member, Payment } from "../types";
 import { X, Calendar, DollarSign, FileText, Check } from "lucide-react";
+import { motion } from "motion/react";
 
 interface PaymentModalProps {
   onClose: () => void;
@@ -50,12 +51,23 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ onClose, student, pa
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStudentId || amount <= 0) return;
+    
+    const selectedStudent = students.find(s => s.uid === selectedStudentId);
+    const studentName = selectedStudent ? selectedStudent.name : "Unknown Student";
+
+    if (paymentToEdit) {
+      if (!confirm(`Are you sure you want to correct this payment to ₱${amount.toLocaleString()} for student ${studentName}? An audit log entry will register this adjustment.`)) {
+        return;
+      }
+    } else {
+      if (!confirm(`Are you sure you want to log a payment of ₱${amount.toLocaleString()} for student ${studentName}?`)) {
+        return;
+      }
+    }
+
     setSubmitting(true);
     
     try {
-      const selectedStudent = students.find(s => s.uid === selectedStudentId);
-      const studentName = selectedStudent ? selectedStudent.name : "Unknown Student";
-      
       if (paymentToEdit) {
         // Correct/Update payment
         await updatePayment(paymentToEdit.id, paymentToEdit.amount, {
@@ -67,6 +79,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ onClose, student, pa
           paymentDate,
           notes: notes.trim() || `Corrected transaction logs.`
         });
+        alert("Payment log adjusted and updated successfully!");
       } else {
         // Create new payment
         await recordPayment({
@@ -78,6 +91,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ onClose, student, pa
           paymentDate,
           notes
         });
+        alert("Payment logged successfully!");
       }
       onClose();
     } catch (err) {
@@ -88,8 +102,18 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ onClose, student, pa
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-100 overflow-hidden animate-slide-up">
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+    >
+      <motion.div 
+        initial={{ scale: 0.95, y: 15, opacity: 0 }}
+        animate={{ scale: 1, y: 0, opacity: 1 }}
+        transition={{ type: "spring", damping: 25, stiffness: 350 }}
+        className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-100 overflow-hidden"
+      >
         
         {/* Header */}
         <div className="bg-slate-900 text-white p-6 flex justify-between items-center">
@@ -101,7 +125,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ onClose, student, pa
               {paymentToEdit ? "Audit trails will log the adjustment history." : "Add a student payment to the fund database."}
             </p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition">
+          <button onClick={onClose} className="text-slate-400 hover:text-white transition cursor-pointer">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -221,7 +245,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ onClose, student, pa
             {submitting ? "Saving Transaction..." : "Save Payment Log"}
           </button>
         </form>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };

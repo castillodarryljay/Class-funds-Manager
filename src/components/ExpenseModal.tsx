@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useApp } from "../context/AppContext";
 import { X, Check, Image, Receipt } from "lucide-react";
+import { motion } from "motion/react";
 
 interface ExpenseModalProps {
   onClose: () => void;
@@ -25,6 +26,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ onClose }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!description.trim() || amount <= 0 || !paidTo.trim()) return;
+    
+    if (!confirm(`Are you sure you want to record an expense of ₱${amount.toLocaleString()} for "${description.trim()}"? This action will reduce the available classroom fund.`)) {
+      return;
+    }
+
     setSubmitting(true);
     try {
       await recordExpense({
@@ -35,6 +41,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ onClose }) => {
         receiptURL,
         notes: notes.trim()
       });
+      alert("Expense recorded successfully!");
       onClose();
     } catch (err) {
       console.error(err);
@@ -44,8 +51,18 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-100 overflow-hidden animate-slide-up">
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+    >
+      <motion.div 
+        initial={{ scale: 0.95, y: 15, opacity: 0 }}
+        animate={{ scale: 1, y: 0, opacity: 1 }}
+        transition={{ type: "spring", damping: 25, stiffness: 350 }}
+        className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-100 overflow-hidden"
+      >
         
         {/* Header */}
         <div className="bg-slate-900 text-white p-6 flex justify-between items-center">
@@ -53,7 +70,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ onClose }) => {
             <h3 className="font-extrabold text-lg">Log Classroom Expense</h3>
             <p className="text-slate-400 text-xs font-medium">Record outgoing funds to keep the balance sheet transparent.</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition">
+          <button onClick={onClose} className="text-slate-400 hover:text-white transition cursor-pointer">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -176,7 +193,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ onClose }) => {
             {submitting ? "Logging Expense..." : "Save Expense Record"}
           </button>
         </form>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };

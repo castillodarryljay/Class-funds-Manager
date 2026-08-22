@@ -16,7 +16,6 @@ export const ClassroomCreate: React.FC<ClassroomCreateProps> = ({ onBack, onCrea
   const [yearLevel, setYearLevel] = useState("2nd Year");
   const [section, setSection] = useState("");
   const [schoolYear, setSchoolYear] = useState("2026-2027");
-  const [contributionGoal, setContributionGoal] = useState<number>(500);
   const [description, setDescription] = useState("");
   
   const [submitting, setSubmitting] = useState(false);
@@ -26,6 +25,11 @@ export const ClassroomCreate: React.FC<ClassroomCreateProps> = ({ onBack, onCrea
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !school.trim()) return;
+
+    if (!confirm(`Are you sure you want to create the classroom workspace "${name.trim()}"?`)) {
+      return;
+    }
+
     setSubmitting(true);
     try {
       const cls = await createClassroom({
@@ -35,11 +39,11 @@ export const ClassroomCreate: React.FC<ClassroomCreateProps> = ({ onBack, onCrea
         yearLevel,
         section,
         schoolYear,
-        contributionGoal,
         description
       });
       if (cls) {
         setCreatedClassroom(cls);
+        alert("Classroom workspace initialized successfully!");
       }
     } catch (err) {
       console.error(err);
@@ -234,32 +238,17 @@ export const ClassroomCreate: React.FC<ClassroomCreateProps> = ({ onBack, onCrea
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div>
               {/* School Year */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">School Year</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. 2026-2027"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-600 focus:bg-white text-slate-950 font-semibold"
-                  value={schoolYear}
-                  onChange={(e) => setSchoolYear(e.target.value)}
-                />
-              </div>
-
-              {/* Contribution Goal */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Contribution Goal (₱)</label>
-                <input
-                  type="number"
-                  required
-                  min="1"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-600 focus:bg-white text-slate-950 font-semibold"
-                  value={contributionGoal}
-                  onChange={(e) => setContributionGoal(Number(e.target.value))}
-                />
-              </div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">School Year</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. 2026-2027"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-600 focus:bg-white text-slate-950 font-semibold"
+                value={schoolYear}
+                onChange={(e) => setSchoolYear(e.target.value)}
+              />
             </div>
 
             {/* Description */}

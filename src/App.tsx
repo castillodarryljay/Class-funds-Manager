@@ -152,7 +152,7 @@ function AppContent() {
     }
 
     // Active Dashboard
-    return <TreasurerDashboard />;
+    return <TreasurerDashboard onCreateClassroom={() => setIsCreatingClass(true)} />;
   }
 
   // Student Routing

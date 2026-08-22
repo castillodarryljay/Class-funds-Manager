@@ -11,7 +11,8 @@ import {
   onSnapshot, 
   orderBy, 
   limit, 
-  updateDoc 
+  updateDoc,
+  deleteDoc
 } from "firebase/firestore";
 import { 
   signInWithPopup, 
@@ -49,6 +50,7 @@ interface AppContextType {
   loginSandboxUser: (role: UserRole, customName?: string) => Promise<void>;
   setError: (err: string | null) => void;
   selectClassroom: (classroomId: string) => void;
+  deleteClassroom: (classroomId: string) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -90,7 +92,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               name: firebaseUser.displayName || "New User",
               email: firebaseUser.email || "",
               photoURL: firebaseUser.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(firebaseUser.displayName || "NU")}`,
-              role: "student", // default temporary role
               createdAt: new Date().toISOString()
             };
             setUser(tempProfile);
@@ -274,7 +275,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           name: firebaseUser.displayName || "New User",
           email: firebaseUser.email || "",
           photoURL: firebaseUser.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(firebaseUser.displayName || "NU")}`,
-          role: "student", // temp default
           createdAt: new Date().toISOString()
         };
         setUser(tempProfile);
@@ -411,7 +411,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         yearLevel: classroomData.yearLevel || "",
         section: classroomData.section || "",
         schoolYear: classroomData.schoolYear || "2026-2027",
-        contributionGoal: Number(classroomData.contributionGoal) || 500,
         description: classroomData.description || "",
         treasurerId: user.uid,
         createdAt: new Date().toISOString(),
@@ -439,7 +438,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         userName: user.name,
         userRole: "treasurer",
         action: "Classroom Created",
-        details: `Created classroom "${newClassroom.name}" under ${newClassroom.school} (Goal: ₱${newClassroom.contributionGoal})`,
+        details: `Created classroom workspace "${newClassroom.name}" under ${newClassroom.school}.`,
         timestamp: new Date().toISOString()
       });
 
@@ -653,6 +652,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // Delete Classroom (Treasurer)
+  const deleteClassroom = async (classroomId: string) => {
+    if (!user || user.role !== "treasurer") return false;
+    try {
+      await deleteDoc(doc(db, "classrooms", classroomId));
+      
+      // If deleted classroom was currently selected, select another or null
+      if (classroom && classroom.id === classroomId) {
+        const remaining = classrooms.filter(c => c.id !== classroomId);
+        if (remaining.length > 0) {
+          setClassroom(remaining[0]);
+        } else {
+          setClassroom(null);
+        }
+      }
+
+      // Also clean up local classrooms state
+      setClassrooms(classrooms.filter(c => c.id !== classroomId));
+      return true;
+    } catch (err: any) {
+      console.error("Delete classroom error:", err);
+      setError("Failed to delete classroom: " + err.message);
+      return false;
+    }
+  };
+
   // Write manual Audit Log if needed
   const writeAuditLog = async (action: string, details: string) => {
     if (!user || !classroom) return;
@@ -695,7 +720,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       writeAuditLog,
       loginSandboxUser,
       setError,
-      selectClassroom
+      selectClassroom,
+      deleteClassroom
     }}>
       {children}
     </AppContext.Provider>

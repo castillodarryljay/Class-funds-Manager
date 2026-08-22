@@ -5,7 +5,7 @@ export interface UserProfile {
   name: string;
   email: string;
   photoURL: string;
-  role: UserRole;
+  role?: UserRole;
   createdAt: string;
   
   // Student specific fields
@@ -24,7 +24,6 @@ export interface Classroom {
   yearLevel: string;
   section: string;
   schoolYear: string;
-  contributionGoal: number;
   description?: string;
   treasurerId: string;
   createdAt: string;

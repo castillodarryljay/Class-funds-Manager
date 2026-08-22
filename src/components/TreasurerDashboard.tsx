@@ -24,14 +24,20 @@ import {
   ChevronRight,
   ShieldCheck,
   ToggleLeft,
-  ToggleRight
+  ToggleRight,
+  Menu,
+  X
 } from "lucide-react";
 import { PaymentModal } from "./PaymentModal";
 import { ExpenseModal } from "./ExpenseModal";
 import { ReportView } from "./ReportView";
 import { Classroom, Member, Payment } from "../types";
 
-export const TreasurerDashboard: React.FC = () => {
+export interface TreasurerDashboardProps {
+  onCreateClassroom?: () => void;
+}
+
+export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreateClassroom }) => {
   const { 
     user, 
     classroom, 
@@ -42,10 +48,12 @@ export const TreasurerDashboard: React.FC = () => {
     auditLogs, 
     updateClassroomSettings, 
     selectClassroom,
+    deleteClassroom,
     signOutUser 
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<"overview" | "students" | "payments" | "funds" | "reports" | "invite" | "audit" | "settings">("overview");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   // Modal controllers
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -56,7 +64,7 @@ export const TreasurerDashboard: React.FC = () => {
 
   // Search/Filters states for Students List
   const [studentSearch, setStudentSearch] = useState("");
-  const [studentFilter, setStudentFilter] = useState<"all" | "paid" | "partial" | "unpaid">("all");
+  const [studentFilter, setStudentFilter] = useState<"all" | "contributor" | "non-contributor">("all");
 
   // Copy controllers
   const [copiedLink, setCopiedLink] = useState(false);
@@ -68,8 +76,6 @@ export const TreasurerDashboard: React.FC = () => {
 
   // Calculated Statistics
   const studentsCount = members.filter(m => m.role === "student").length;
-  const goal = classroom.contributionGoal;
-  const expectedContributions = studentsCount * goal;
   
   // Total Collected (Income)
   const totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
@@ -77,14 +83,11 @@ export const TreasurerDashboard: React.FC = () => {
   // Total Expenses (Expenses)
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
   
-  // Remaining balance
-  const remainingCollected = Math.max(0, expectedContributions - totalCollected);
-  
   // Net Balance
   const fundBalance = totalCollected - totalExpenses;
 
-  // Unpaid Students count
-  const unpaidStudentsCount = members.filter(m => {
+  // Non-contributing Students count
+  const nonContributorsCount = members.filter(m => {
     if (m.role !== "student") return false;
     const studentPayments = payments.filter(p => p.studentId === m.uid);
     const paid = studentPayments.reduce((sum, p) => sum + p.amount, 0);
@@ -119,16 +122,12 @@ export const TreasurerDashboard: React.FC = () => {
     .map(student => {
       const studentPayments = payments.filter(p => p.studentId === student.uid);
       const paid = studentPayments.reduce((sum, p) => sum + p.amount, 0);
-      const remaining = Math.max(0, goal - paid);
-      let status: "Paid" | "Partial" | "Unpaid" = "Unpaid";
-      if (paid >= goal) status = "Paid";
-      else if (paid > 0) status = "Partial";
+      const hasContributed = paid > 0;
 
       return {
         member: student,
         paid,
-        remaining,
-        status
+        hasContributed
       };
     });
 
@@ -140,9 +139,8 @@ export const TreasurerDashboard: React.FC = () => {
     if (!matchesSearch) return false;
     
     if (studentFilter === "all") return true;
-    if (studentFilter === "paid") return s.status === "Paid";
-    if (studentFilter === "partial") return s.status === "Partial";
-    if (studentFilter === "unpaid") return s.status === "Unpaid";
+    if (studentFilter === "contributor") return s.hasContributed;
+    if (studentFilter === "non-contributor") return !s.hasContributed;
     return true;
   });
 
@@ -185,8 +183,9 @@ export const TreasurerDashboard: React.FC = () => {
     
     const sPayments = payments.filter(p => p.studentId === selectedStudentDetail.uid);
     const paid = sPayments.reduce((sum, p) => sum + p.amount, 0);
-    const remaining = Math.max(0, goal - paid);
-    const status = paid >= goal ? "Paid" : paid > 0 ? "Partial" : "Unpaid";
+    const hasContributed = paid > 0;
+    const statusLabel = hasContributed ? "Contributor" : "No Contribution";
+    const statusClass = hasContributed ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600";
 
     return (
       <div className="bg-white rounded-3xl border border-slate-200/80 p-6 space-y-6 text-left animate-fade-in" id="student-profile-view">
@@ -198,12 +197,8 @@ export const TreasurerDashboard: React.FC = () => {
             &larr; Back to Student List
           </button>
           
-          <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-            status === "Paid" ? "bg-emerald-100 text-emerald-800" :
-            status === "Partial" ? "bg-amber-100 text-amber-800" :
-            "bg-red-100 text-red-800"
-          }`}>
-            {status}
+          <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${statusClass}`}>
+            {statusLabel}
           </span>
         </div>
 
@@ -220,18 +215,14 @@ export const TreasurerDashboard: React.FC = () => {
         </div>
 
         {/* Contributions Summary */}
-        <div className="grid grid-cols-3 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Goal Target</span>
-            <span className="font-extrabold text-slate-900 text-sm">₱{goal.toLocaleString()}</span>
-          </div>
+        <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
           <div>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Contributed</span>
             <span className="font-extrabold text-emerald-600 text-sm">₱{paid.toLocaleString()}</span>
           </div>
           <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Remaining</span>
-            <span className="font-extrabold text-slate-900 text-sm">₱{remaining.toLocaleString()}</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Logged Transactions</span>
+            <span className="font-extrabold text-slate-900 text-sm">{sPayments.length}</span>
           </div>
         </div>
 
@@ -294,8 +285,162 @@ export const TreasurerDashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row" id="treasurer-dashboard">
       
-      {/* Dashboard Sidebar Navigation */}
-      <aside className="w-full md:w-64 bg-slate-950 text-white flex flex-col justify-between shrink-0 p-6 md:min-h-screen border-r border-slate-800">
+      {/* Mobile Sticky Top Header */}
+      <div className="md:hidden flex items-center justify-between bg-slate-950 text-white p-4 sticky top-0 z-40 shadow-md">
+        <div className="flex items-center gap-2">
+          <div className="bg-emerald-600 text-white p-1.5 rounded-lg">
+            <Landmark className="h-4 w-4" />
+          </div>
+          <div>
+            <span className="font-extrabold text-xs tracking-tight uppercase block leading-none">Class Funds</span>
+            <span className="text-[8px] text-emerald-400 font-bold tracking-wider uppercase block mt-0.5">Treasurer Console</span>
+          </div>
+        </div>
+        <button 
+          onClick={() => setIsMobileMenuOpen(true)}
+          className="p-2 hover:bg-slate-900 rounded-lg text-slate-400 hover:text-white transition"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+      </div>
+
+      {/* Mobile Navigation Drawer */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex">
+          {/* Backdrop Overlay */}
+          <div 
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+          
+          {/* Side Drawer */}
+          <aside className="relative w-64 bg-slate-950 text-white flex flex-col justify-between p-6 h-full shadow-2xl z-50 animate-fade-in text-left">
+            <div className="space-y-6 overflow-y-auto max-h-[85vh] pr-1">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="bg-emerald-600 text-white p-1.5 rounded-lg">
+                    <Landmark className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <span className="font-extrabold text-xs tracking-tight uppercase block leading-none">Class Funds</span>
+                    <span className="text-[8px] text-emerald-400 font-bold tracking-wider uppercase block mt-0.5">Treasurer Console</span>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="p-1 text-slate-400 hover:text-white transition"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Active Workspace Select */}
+              <div className="space-y-1 text-left">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Classroom Workspace</label>
+                <select
+                  value={classroom.id}
+                  onChange={(e) => {
+                    selectClassroom(e.target.value);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="w-full bg-slate-900 border border-slate-800 text-slate-100 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-emerald-600 cursor-pointer"
+                >
+                  {classrooms.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                <div className="grid grid-cols-2 gap-2 pt-1.5">
+                  <button
+                    onClick={() => {
+                      if (onCreateClassroom) {
+                        onCreateClassroom();
+                        setIsMobileMenuOpen(false);
+                      }
+                    }}
+                    className="w-full py-1.5 bg-emerald-700/40 hover:bg-emerald-700 text-emerald-300 hover:text-white rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="h-3 w-3" /> Create Class
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (confirm(`Are you sure you want to permanently delete the classroom "${classroom.name}"? This action cannot be undone.`)) {
+                        const success = await deleteClassroom(classroom.id);
+                        if (success) {
+                          alert("Classroom deleted successfully!");
+                          setIsMobileMenuOpen(false);
+                        } else {
+                          alert("Failed to delete classroom.");
+                        }
+                      }
+                    }}
+                    className="w-full py-1.5 bg-red-950/40 hover:bg-red-700 text-red-300 hover:text-white rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <X className="h-3 w-3" /> Delete Active
+                  </button>
+                </div>
+              </div>
+
+              {/* User profile card */}
+              <div className="bg-slate-900 p-3 flex items-center gap-2.5 rounded-2xl border border-slate-800/80">
+                <img 
+                  src={user.photoURL} 
+                  alt="Avatar" 
+                  referrerPolicy="no-referrer"
+                  className="h-8 w-8 rounded-full border border-slate-700 bg-slate-800 p-0.5" 
+                />
+                <div className="min-w-0 text-left">
+                  <span className="font-bold text-slate-100 text-xs block truncate">{user.name}</span>
+                  <span className="text-[9px] text-emerald-400 font-bold block uppercase tracking-wider">Active Treasurer</span>
+                </div>
+              </div>
+
+              {/* Navigation links */}
+              <nav className="space-y-1.5 text-left">
+                {[
+                  { id: "overview", label: "Overview", icon: Landmark },
+                  { id: "students", label: "Students", icon: Users },
+                  { id: "payments", label: "Payments", icon: Wallet },
+                  { id: "funds", label: "Fund Records", icon: TrendingUp },
+                  { id: "reports", label: "Reports", icon: FileText },
+                  { id: "invite", label: "Invite Students", icon: ExternalLink },
+                  { id: "audit", label: "Audit Logs", icon: Clock },
+                  { id: "settings", label: "Settings", icon: Settings }
+                ].map(tab => {
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        setActiveTab(tab.id as any);
+                        setSelectedStudentDetail(null);
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className={`w-full py-2 px-3 rounded-xl text-xs font-bold transition flex items-center gap-2.5 ${
+                        activeTab === tab.id
+                          ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/10"
+                          : "text-slate-400 hover:text-white hover:bg-slate-900"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" /> {tab.label}
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+
+            {/* Logout button */}
+            <button
+              onClick={signOutUser}
+              className="w-full py-2.5 px-3 rounded-xl text-xs font-bold text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition flex items-center gap-2.5 text-left mt-8"
+            >
+              <LogOut className="h-4 w-4" /> Log Out Account
+            </button>
+          </aside>
+        </div>
+      )}
+
+      {/* Dashboard Sidebar Navigation (Desktop version) */}
+      <aside className="hidden md:flex w-64 bg-slate-950 text-white flex-col justify-between shrink-0 p-6 md:min-h-screen border-r border-slate-800">
         <div className="space-y-8">
           {/* Brand logo */}
           <div className="flex items-center gap-2.5">
@@ -314,12 +459,35 @@ export const TreasurerDashboard: React.FC = () => {
             <select
               value={classroom.id}
               onChange={(e) => selectClassroom(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-800 text-slate-100 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-emerald-600"
+              className="w-full bg-slate-900 border border-slate-800 text-slate-100 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-emerald-600 cursor-pointer"
             >
               {classrooms.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
+            <div className="grid grid-cols-2 gap-2 pt-1.5">
+              <button
+                onClick={onCreateClassroom}
+                className="w-full py-1.5 bg-emerald-700/40 hover:bg-emerald-700 text-emerald-300 hover:text-white rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer"
+              >
+                <Plus className="h-3 w-3" /> Create Class
+              </button>
+              <button
+                onClick={async () => {
+                  if (confirm(`Are you sure you want to permanently delete the classroom "${classroom.name}"? This action cannot be undone.`)) {
+                    const success = await deleteClassroom(classroom.id);
+                    if (success) {
+                      alert("Classroom deleted successfully!");
+                    } else {
+                      alert("Failed to delete classroom.");
+                    }
+                  }
+                }}
+                className="w-full py-1.5 bg-red-950/40 hover:bg-red-700 text-red-300 hover:text-white rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer"
+              >
+                <X className="h-3 w-3" /> Delete Active
+              </button>
+            </div>
           </div>
 
           {/* User profile card */}
@@ -420,7 +588,7 @@ export const TreasurerDashboard: React.FC = () => {
               <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Total Collected</span>
                 <span className="text-2xl font-black text-emerald-600">₱{totalCollected.toLocaleString()}</span>
-                <span className="text-[10px] text-slate-400 block font-semibold">Goal target: ₱{expectedContributions.toLocaleString()}</span>
+                <span className="text-[10px] text-slate-400 block font-semibold">{payments.length} registered receipts</span>
               </div>
 
               <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
@@ -438,7 +606,7 @@ export const TreasurerDashboard: React.FC = () => {
               <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Enrolled Students</span>
                 <span className="text-2xl font-black text-slate-950">{studentsCount}</span>
-                <span className="text-[10px] text-slate-400 block font-semibold">{unpaidStudentsCount} unpaid accounts</span>
+                <span className="text-[10px] text-slate-400 block font-semibold">{nonContributorsCount} non-contributors</span>
               </div>
             </div>
 
@@ -446,16 +614,16 @@ export const TreasurerDashboard: React.FC = () => {
               
               {/* Financial Progress Visual */}
               <div className="lg:col-span-8 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
-                <h3 className="font-extrabold text-slate-950 text-base">Funding Target Progress</h3>
+                <h3 className="font-extrabold text-slate-950 text-base">Student Contribution Participation</h3>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <span className="text-xs text-slate-400 block font-semibold">Collected Contribution Funds</span>
-                    <span className="text-xl font-bold text-slate-950">₱{totalCollected.toLocaleString()}</span>
+                    <span className="text-xs text-slate-400 block font-semibold">Contributing Students</span>
+                    <span className="text-xl font-bold text-emerald-600">{studentsCount - nonContributorsCount} accounts</span>
                   </div>
                   <div>
-                    <span className="text-xs text-slate-400 block font-semibold">Remaining Target Target</span>
-                    <span className="text-xl font-bold text-slate-950">₱{remainingCollected.toLocaleString()}</span>
+                    <span className="text-xs text-slate-400 block font-semibold">Non-contributing Students</span>
+                    <span className="text-xl font-bold text-slate-500">{nonContributorsCount} accounts</span>
                   </div>
                 </div>
 
@@ -463,12 +631,12 @@ export const TreasurerDashboard: React.FC = () => {
                   <div className="h-3 bg-slate-100 rounded-full overflow-hidden flex">
                     <div 
                       className="bg-emerald-600 h-full rounded-full transition-all duration-1000"
-                      style={{ width: `${expectedContributions > 0 ? Math.min(100, Math.round((totalCollected / expectedContributions) * 100)) : 0}%` }}
+                      style={{ width: `${studentsCount > 0 ? Math.round(((studentsCount - nonContributorsCount) / studentsCount) * 100) : 0}%` }}
                     />
                   </div>
                   <div className="flex justify-between items-center text-[10px] font-bold text-slate-400">
-                    <span>{expectedContributions > 0 ? Math.min(100, Math.round((totalCollected / expectedContributions) * 100)) : 0}% Collected</span>
-                    <span>Target: ₱{expectedContributions.toLocaleString()}</span>
+                    <span>{studentsCount > 0 ? Math.round(((studentsCount - nonContributorsCount) / studentsCount) * 100) : 0}% of class participated</span>
+                    <span>Total Enrolled: {studentsCount} students</span>
                   </div>
                 </div>
               </div>
@@ -577,16 +745,15 @@ export const TreasurerDashboard: React.FC = () => {
                     onChange={(e) => setStudentFilter(e.target.value as any)}
                   >
                     <option value="all">All Contribution Levels</option>
-                    <option value="paid">Fully Paid</option>
-                    <option value="partial">Partially Paid</option>
-                    <option value="unpaid">Unpaid</option>
+                    <option value="contributor">With Contribution</option>
+                    <option value="non-contributor">No Contribution</option>
                   </select>
                 </div>
               </div>
 
               {/* Students Table */}
-              <div className="overflow-hidden rounded-2xl border border-slate-100">
-                <table className="w-full text-xs">
+              <div className="overflow-x-auto w-full rounded-2xl border border-slate-100">
+                <table className="w-full text-xs min-w-[500px]">
                   <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider">
                     <tr>
                       <th className="px-5 py-3 text-left">Student</th>
@@ -597,7 +764,7 @@ export const TreasurerDashboard: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700">
-                    {filteredStudents.map(({ member, paid, status }) => (
+                    {filteredStudents.map(({ member, paid, hasContributed }) => (
                       <tr 
                         key={member.uid} 
                         className={`hover:bg-slate-50/50 cursor-pointer transition ${selectedStudentDetail?.uid === member.uid ? "bg-slate-50" : ""}`}
@@ -613,11 +780,9 @@ export const TreasurerDashboard: React.FC = () => {
                         <td className="px-5 py-3.5 text-right font-bold text-slate-900">₱{paid.toLocaleString()}</td>
                         <td className="px-5 py-3.5 text-center">
                           <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
-                            status === "Paid" ? "bg-emerald-100 text-emerald-800" :
-                            status === "Partial" ? "bg-amber-100 text-amber-800" :
-                            "bg-red-100 text-red-800"
+                            hasContributed ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"
                           }`}>
-                            {status}
+                            {hasContributed ? "Contributor" : "No Payment"}
                           </span>
                         </td>
                         <td className="px-5 py-3 text-center">
@@ -667,8 +832,8 @@ export const TreasurerDashboard: React.FC = () => {
               <span className="text-xs text-slate-400 font-bold">{payments.length} log records</span>
             </div>
 
-            <div className="overflow-hidden rounded-2xl border border-slate-100">
-              <table className="w-full text-xs">
+            <div className="overflow-x-auto w-full rounded-2xl border border-slate-100">
+              <table className="w-full text-xs min-w-[500px]">
                 <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider">
                   <tr>
                     <th className="px-5 py-3 text-left">Date</th>
@@ -748,8 +913,8 @@ export const TreasurerDashboard: React.FC = () => {
                 <span className="text-xs text-slate-400 font-bold">{financialRecords.length} statements</span>
               </div>
 
-              <div className="overflow-hidden rounded-2xl border border-slate-100">
-                <table className="w-full text-xs">
+              <div className="overflow-x-auto w-full rounded-2xl border border-slate-100">
+                <table className="w-full text-xs min-w-[500px]">
                   <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider">
                     <tr>
                       <th className="px-5 py-3 text-left">Date</th>
@@ -934,15 +1099,16 @@ export const TreasurerDashboard: React.FC = () => {
               const nameValue = formData.get("name") as string;
               const schoolValue = formData.get("school") as string;
               const syValue = formData.get("schoolYear") as string;
-              const goalValue = Number(formData.get("contributionGoal"));
               const descValue = formData.get("description") as string;
 
-              if (nameValue && schoolValue && goalValue) {
+              if (nameValue && schoolValue) {
+                if (!confirm(`Are you sure you want to save these changes to the classroom settings for "${classroom.name}"?`)) {
+                  return;
+                }
                 await updateClassroomSettings({
                   name: nameValue,
                   school: schoolValue,
                   schoolYear: syValue,
-                  contributionGoal: goalValue,
                   description: descValue
                 });
                 alert("Classroom settings updated successfully!");
@@ -970,27 +1136,15 @@ export const TreasurerDashboard: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">School Year</label>
-                  <input
-                    type="text"
-                    name="schoolYear"
-                    defaultValue={classroom.schoolYear}
-                    required
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-semibold text-slate-950 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Contribution Goal (₱)</label>
-                  <input
-                    type="number"
-                    name="contributionGoal"
-                    defaultValue={classroom.contributionGoal}
-                    required
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold text-slate-950 focus:outline-none"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">School Year</label>
+                <input
+                  type="text"
+                  name="schoolYear"
+                  defaultValue={classroom.schoolYear}
+                  required
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-semibold text-slate-950 focus:outline-none"
+                />
               </div>
 
               <div>
@@ -1012,6 +1166,11 @@ export const TreasurerDashboard: React.FC = () => {
             </form>
           </div>
         )}
+
+        {/* Footer Credits */}
+        <footer className="mt-12 border-t border-slate-200/60 pt-6 pb-4 text-center text-xs text-slate-500">
+          <p>Class Funds System &copy; 2026. Designed & Developed by <strong className="text-slate-800">Darryl Jay Castillo (SHIRO)</strong>.</p>
+        </footer>
       </main>
 
       {/* --- MODAL RENDERING WINDOWS --- */}
