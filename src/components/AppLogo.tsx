@@ -33,6 +33,8 @@ export const AppLogo: React.FC<AppLogoProps> = ({
         <img
           src={LOGO_BASE64}
           alt="ClassFund Logo"
+          loading="eager"
+          decoding="sync"
           className={`${imgDimension} rounded-2xl object-contain drop-shadow-md select-none transition-transform duration-200 hover:scale-105 ${
             dark ? "bg-slate-900/60 p-1 border border-slate-800/80" : "bg-white/90 p-1 border border-slate-100 shadow-sm"
           }`}

@@ -18,16 +18,26 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
+      // Clear out legacy cache and workers that cause production flickers
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
+          if ('caches' in window) {
+            caches.keys().then((names) => {
+              for (let name of names) {
+                if (name !== 'classfund-cache-v2') {
+                  caches.delete(name);
+                }
+              }
+            });
+          }
           navigator.serviceWorker.getRegistrations().then((registrations) => {
             for (let registration of registrations) {
               registration.update();
             }
           });
           navigator.serviceWorker.register('/sw.js')
-            .then((reg) => console.log('PWA Service Worker registered:', reg.scope))
-            .catch((err) => console.error('PWA Service Worker registration failed:', err));
+            .then((reg) => console.log('PWA Service Worker ready:', reg.scope))
+            .catch((err) => console.log('PWA Service Worker notice:', err));
         });
       }
     </script>
