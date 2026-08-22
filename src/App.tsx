@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { AppProvider, useApp } from "./context/AppContext";
 import { LandingPage } from "./components/LandingPage";
+import { RoleSelection } from "./components/RoleSelection";
 import { ProfileForm } from "./components/ProfileForm";
 import { ClassroomCreate } from "./components/ClassroomCreate";
 import { JoinClassroom } from "./components/JoinClassroom";
@@ -85,17 +86,17 @@ function AppContent() {
     return <LandingPage />;
   }
 
-  // 4. DIRECT PROFILE FORM STEP (BYPASS ROLE SELECTION VIEW)
-  // If the profile does not have a set role yet, directly use their landing page selection.
+  // 4. ROLE SELECTION STEP
+  // If the profile does not have a set role yet, let them choose.
   if (!user.role) {
-    const landingRole = (localStorage.getItem("preferred_login_role") as UserRole) || "treasurer";
+    if (!selectedRole) {
+      return <RoleSelection onRoleSelected={(role) => setSelectedRole(role)} />;
+    }
+    // Complete Profile Form after choosing role
     return (
       <ProfileForm 
-        role={landingRole} 
-        onProfileCreated={() => {
-          // Clear routing states
-          setSelectedRole(null);
-        }} 
+        role={selectedRole} 
+        onProfileCreated={() => setSelectedRole(null)} 
       />
     );
   }
