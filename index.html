@@ -10,9 +10,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="ClassFund" />
-    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icon.png" />
     <link rel="shortcut icon" href="/favicon.ico" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
     <meta property="og:title" content="ClassFund Manager" />
     <meta property="og:description" content="Premium, secure classroom financial manager & student receipt book." />
@@ -23,17 +24,22 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      // Register PWA Service Worker for Chrome 'Install as App' functionality
+      // Immediate registration of Service Worker for Chrome PWA Installation criteria
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function() {
-          navigator.serviceWorker.register('/sw.js')
+        function registerSW() {
+          navigator.serviceWorker.register('/sw.js', { scope: '/' })
             .then(function(reg) {
-              console.log('ClassFund PWA ready for install:', reg.scope);
+              console.log('ClassFund PWA ServiceWorker active:', reg.scope);
             })
             .catch(function(err) {
-              console.log('Service Worker registration skipped:', err);
+              console.log('ServiceWorker registration note:', err);
             });
-        });
+        }
+        if (document.readyState === 'complete') {
+          registerSW();
+        } else {
+          window.addEventListener('load', registerSW);
+        }
       }
     </script>
   </body>
