@@ -3,6 +3,13 @@ import { useApp } from "../context/AppContext";
 import { AppLogo } from "./AppLogo";
 import { OnboardingTour } from "./OnboardingTour";
 import { TermsModal } from "./TermsModal";
+import { PaymentModal } from "./PaymentModal";
+import { ExpenseModal } from "./ExpenseModal";
+import { ExpenseDetailModal } from "./ExpenseDetailModal";
+import { ReportView } from "./ReportView";
+import { JoinRequestsManager } from "./JoinRequestsManager";
+import { CashoutsManager } from "./CashoutsManager";
+import { Classroom, Member, Payment, Expense } from "../types";
 import { 
   Landmark, 
   Users, 
@@ -39,14 +46,10 @@ import {
   Phone,
   Trash2,
   ArrowDownToLine,
-  Info
+  Info,
+  Receipt,
+  Eye
 } from "lucide-react";
-import { PaymentModal } from "./PaymentModal";
-import { ExpenseModal } from "./ExpenseModal";
-import { ReportView } from "./ReportView";
-import { JoinRequestsManager } from "./JoinRequestsManager";
-import { CashoutsManager } from "./CashoutsManager";
-import { Classroom, Member, Payment } from "../types";
 
 export interface TreasurerDashboardProps {
   onCreateClassroom?: () => void;
@@ -70,12 +73,13 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
     signOutUser 
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<"overview" | "requests" | "cashouts" | "students" | "payments" | "funds" | "reports" | "invite" | "audit" | "settings">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "requests" | "cashouts" | "students" | "payments" | "expenses" | "funds" | "reports" | "invite" | "audit" | "settings">("overview");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   // Modal controllers
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [selectedExpenseForDetail, setSelectedExpenseForDetail] = useState<Expense | null>(null);
   const [selectedStudentForPayment, setSelectedStudentForPayment] = useState<Member | undefined>(undefined);
   const [selectedPaymentForEdit, setSelectedPaymentForEdit] = useState<Payment | undefined>(undefined);
   const [selectedStudentDetail, setSelectedStudentDetail] = useState<Member | null>(null);
@@ -83,6 +87,10 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
   // Search/Filters states for Students List
   const [studentSearch, setStudentSearch] = useState("");
   const [studentFilter, setStudentFilter] = useState<"all" | "contributor" | "non-contributor">("all");
+
+  // Search/Filters states for Expenses List
+  const [expenseSearch, setExpenseSearch] = useState("");
+  const [expenseCategoryFilter, setExpenseCategoryFilter] = useState("all");
 
   // Copy controllers
   const [copiedLink, setCopiedLink] = useState(false);
@@ -133,12 +141,26 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
     { id: "cashouts", label: "Cashout Claims", icon: ArrowDownToLine, badge: pendingCashoutsCount },
     { id: "students", label: "Students", icon: Users },
     { id: "payments", label: "Payments", icon: Wallet },
+    { id: "expenses", label: "Expenses", icon: Receipt, badge: expenses.length },
     { id: "funds", label: "Fund Records", icon: TrendingUp },
     { id: "reports", label: "Reports", icon: FileText },
     { id: "invite", label: "Invite Students", icon: ExternalLink },
     { id: "audit", label: "Audit Logs", icon: Clock },
     { id: "settings", label: "Settings", icon: Settings }
   ];
+
+  // Filtered Expenses List for Treasurer View
+  const filteredExpenses = expenses.filter(exp => {
+    const matchesSearch = 
+      exp.description.toLowerCase().includes(expenseSearch.toLowerCase()) ||
+      (exp.paidTo || "").toLowerCase().includes(expenseSearch.toLowerCase()) ||
+      (exp.notes || "").toLowerCase().includes(expenseSearch.toLowerCase());
+    if (!matchesSearch) return false;
+    if (expenseCategoryFilter !== "all" && exp.category.toLowerCase() !== expenseCategoryFilter.toLowerCase()) {
+      return false;
+    }
+    return true;
+  });
   const getInviteLink = () => {
     return `${window.location.origin}/?join=${classroom.inviteCode}`;
   };
@@ -1108,7 +1130,155 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
           </div>
         )}
 
-        {/* 4. FUND RECORDS TAB */}
+        {/* 4. EXPENSES TAB */}
+        {activeTab === "expenses" && (
+          <div className="space-y-6 text-left">
+            {/* Top statistics cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Total Classroom Expenses</span>
+                <span className="text-2xl font-black text-red-600">₱{totalExpenses.toLocaleString()}</span>
+                <span className="text-[10px] text-slate-400 block font-semibold">{expenses.length} official disbursements</span>
+              </div>
+              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Per Student Equal Share</span>
+                <span className="text-2xl font-black text-slate-900">₱{perStudentExpenseShare.toFixed(2)}</span>
+                <span className="text-[10px] text-slate-400 block font-semibold">Shared across all {enrolledStudentsCount} students</span>
+              </div>
+              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Remaining Cash in Fund</span>
+                <span className="text-2xl font-black text-emerald-600">₱{fundBalance.toLocaleString()}</span>
+                <span className="text-[10px] text-slate-400 block font-semibold">Available for classroom activities</span>
+              </div>
+            </div>
+
+            {/* Expenses List Card */}
+            <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                <div>
+                  <h3 className="font-extrabold text-slate-950 text-base">Classroom Expenses & Receipt Proofs</h3>
+                  <p className="text-slate-400 text-xs">View all recorded purchases, equal sharing deductions, and attached receipts.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowExpenseModal(true)}
+                  className="bg-slate-950 hover:bg-slate-900 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center gap-1.5 shadow-sm shadow-slate-950/10 self-start sm:self-auto cursor-pointer"
+                >
+                  <Plus className="h-4 w-4" /> Log New Expense
+                </button>
+              </div>
+
+              {/* Search & Filter Toolbar */}
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                <div className="sm:col-span-8 relative">
+                  <Search className="absolute left-3.5 top-3 h-3.5 w-3.5 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search by description, vendor, or notes..."
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 font-semibold text-slate-900 focus:outline-none focus:border-emerald-600 focus:bg-white"
+                    value={expenseSearch}
+                    onChange={(e) => setExpenseSearch(e.target.value)}
+                  />
+                </div>
+                <div className="sm:col-span-4 relative">
+                  <Filter className="absolute left-3.5 top-3 h-3.5 w-3.5 text-slate-400" />
+                  <select
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 font-bold text-slate-600 focus:outline-none focus:border-emerald-600 focus:bg-white cursor-pointer"
+                    value={expenseCategoryFilter}
+                    onChange={(e) => setExpenseCategoryFilter(e.target.value)}
+                  >
+                    <option value="all">All Categories</option>
+                    <option value="Supplies">Supplies</option>
+                    <option value="Event">Event</option>
+                    <option value="Printing">Printing</option>
+                    <option value="Refreshments">Refreshments</option>
+                    <option value="Equipment">Equipment</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Expenses Table */}
+              <div className="overflow-x-auto w-full rounded-2xl border border-slate-100">
+                <table className="w-full text-xs min-w-[650px]">
+                  <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider">
+                    <tr>
+                      <th className="px-5 py-3.5 text-left">Date</th>
+                      <th className="px-5 py-3.5 text-left">Item / Description</th>
+                      <th className="px-5 py-3.5 text-left">Category</th>
+                      <th className="px-5 py-3.5 text-left">Paid To</th>
+                      <th className="px-5 py-3.5 text-right">Total Amount</th>
+                      <th className="px-5 py-3.5 text-right">Per Student</th>
+                      <th className="px-5 py-3.5 text-center">Receipt & Details</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {filteredExpenses.map((exp) => (
+                      <tr
+                        key={exp.id}
+                        onClick={() => setSelectedExpenseForDetail(exp)}
+                        className="hover:bg-slate-50/70 transition cursor-pointer group"
+                      >
+                        <td className="px-5 py-3.5 font-semibold text-slate-500 font-mono text-[11px]">
+                          {new Date(exp.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-5 py-3.5 font-bold text-slate-950">
+                          <div className="group-hover:text-emerald-700 transition">{exp.description}</div>
+                          {exp.notes && (
+                            <div className="text-[10px] text-slate-400 font-normal mt-0.5 truncate max-w-xs">
+                              {exp.notes}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px] font-bold">
+                            {exp.category}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 font-semibold text-slate-600">{exp.paidTo || "—"}</td>
+                        <td className="px-5 py-3.5 text-right font-black text-red-600">-₱{exp.amount.toLocaleString()}</td>
+                        <td className="px-5 py-3.5 text-right font-bold text-slate-700">
+                          -₱{(exp.amount / enrolledStudentsCount).toFixed(2)}
+                        </td>
+                        <td className="px-5 py-3.5 text-center">
+                          <button
+                            type="button"
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              setSelectedExpenseForDetail(exp);
+                            }}
+                            className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 transition cursor-pointer"
+                          >
+                            {exp.receiptURL ? (
+                              <>
+                                <Receipt className="h-3 w-3 text-emerald-600" />
+                                <span>Inspect Receipt</span>
+                              </>
+                            ) : (
+                              <>
+                                <Eye className="h-3 w-3" />
+                                <span>Details</span>
+                              </>
+                            )}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredExpenses.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="px-5 py-12 text-center text-slate-400 font-medium italic">
+                          No classroom expenses match the current filter.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 5. FUND RECORDS TAB */}
         {activeTab === "funds" && (
           <div className="space-y-6">
             
@@ -1414,6 +1584,15 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
       {showExpenseModal && (
         <ExpenseModal
           onClose={() => setShowExpenseModal(false)}
+        />
+      )}
+
+      {/* Detailed Expense & Receipt Inspector Modal */}
+      {selectedExpenseForDetail && (
+        <ExpenseDetailModal
+          expense={selectedExpenseForDetail}
+          enrolledStudentsCount={enrolledStudentsCount}
+          onClose={() => setSelectedExpenseForDetail(null)}
         />
       )}
 

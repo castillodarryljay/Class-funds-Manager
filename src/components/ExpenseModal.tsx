@@ -1,17 +1,12 @@
 import React, { useState } from "react";
 import { useApp } from "../context/AppContext";
-import { X, Check, Image, Receipt } from "lucide-react";
+import { X, Check } from "lucide-react";
 import { motion } from "motion/react";
+import { ReceiptImageUploader } from "./ReceiptImageUploader";
 
 interface ExpenseModalProps {
   onClose: () => void;
 }
-
-const PRESET_RECEIPTS = [
-  { name: "Decor Receipt", url: "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=500&auto=format&fit=crop&q=60" },
-  { name: "Printing Invoice", url: "https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=500&auto=format&fit=crop&q=60" },
-  { name: "Store Receipt", url: "https://images.unsplash.com/photo-1450133064473-71024230f91b?w=500&auto=format&fit=crop&q=60" }
-];
 
 export const ExpenseModal: React.FC<ExpenseModalProps> = ({ onClose }) => {
   const { recordExpense } = useApp();
@@ -173,35 +168,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ onClose }) => {
             />
           </div>
 
-          {/* Receipt Selection */}
-          <div className="space-y-2">
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Receipt / Attachment</label>
-            <div className="grid grid-cols-3 gap-2">
-              {PRESET_RECEIPTS.map(preset => (
-                <button
-                  type="button"
-                  key={preset.name}
-                  onClick={() => setReceiptURL(preset.url)}
-                  className={`py-1.5 px-2 rounded-lg text-[10px] font-bold border transition flex items-center justify-center gap-1 ${
-                    receiptURL === preset.url
-                      ? "bg-emerald-50 border-emerald-500 text-emerald-800"
-                      : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
-                  }`}
-                >
-                  <Receipt className="h-3 w-3 shrink-0" />
-                  {preset.name}
-                </button>
-              ))}
-            </div>
-            
-            <input
-              type="url"
-              placeholder="Or paste receipt image URL"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs focus:outline-none focus:border-emerald-600 focus:bg-white text-slate-950 font-semibold"
-              value={receiptURL}
-              onChange={(e) => setReceiptURL(e.target.value)}
-            />
-          </div>
+          {/* Zero-Storage Receipt Image Uploader & Link Generator */}
+          <ReceiptImageUploader
+            value={receiptURL}
+            onChange={(url) => setReceiptURL(url)}
+          />
 
           {/* Notes */}
           <div>

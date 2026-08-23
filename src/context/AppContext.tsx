@@ -165,31 +165,78 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Fetch student's joined classroom or pending request
   const fetchStudentClassroom = async (uid: string) => {
     try {
+      // 0. Check user profile / cached classroomId first for instant direct entry
+      const userSnap = await getDoc(doc(db, "users", uid));
+      const userData = userSnap.exists() ? (userSnap.data() as UserProfile) : null;
+      const targetClassId = (userData as any)?.classroomId || localStorage.getItem(`student_classroom_${uid}`);
+
+      if (targetClassId) {
+        try {
+          const directClassSnap = await getDoc(doc(db, "classrooms", targetClassId));
+          if (directClassSnap.exists()) {
+            const classData = { id: directClassSnap.id, ...directClassSnap.data() } as Classroom;
+            
+            // Check active membership
+            const memberSnap = await getDoc(doc(db, "classrooms", targetClassId, "members", uid));
+            if (memberSnap.exists() && memberSnap.data().status === "active") {
+              setClassroom(classData);
+              setPendingJoinRequest(null);
+              localStorage.setItem(`student_classroom_${uid}`, targetClassId);
+              return;
+            }
+
+            // Check approved join request
+            const reqSnap = await getDoc(doc(db, "classrooms", targetClassId, "joinRequests", uid));
+            if (reqSnap.exists() && reqSnap.data().status === "approved") {
+              setClassroom(classData);
+              setPendingJoinRequest(null);
+              localStorage.setItem(`student_classroom_${uid}`, targetClassId);
+              return;
+            }
+          }
+        } catch (err) {
+          console.warn("Direct cached classroom fetch error, continuing scan:", err);
+        }
+      }
+
+      // 1. Comprehensive search across classrooms for active membership
       const q = query(collection(db, "classrooms"));
       const querySnapshot = await getDocs(q);
       
-      // 1. Check for active membership first
       for (const classDoc of querySnapshot.docs) {
         const memberDoc = await getDoc(doc(db, "classrooms", classDoc.id, "members", uid));
-        if (memberDoc.exists() && memberDoc.data().status === "active") {
-          setClassroom({ id: classDoc.id, ...classDoc.data() } as Classroom);
+        if (memberDoc.exists() && (memberDoc.data().status === "active" || memberDoc.data().role === "student" || memberDoc.data().role === "treasurer")) {
+          const activeClass = { id: classDoc.id, ...classDoc.data() } as Classroom;
+          setClassroom(activeClass);
           setPendingJoinRequest(null);
+          localStorage.setItem(`student_classroom_${uid}`, classDoc.id);
+          await setDoc(doc(db, "users", uid), { classroomId: classDoc.id, status: "active" }, { merge: true });
           return;
         }
       }
 
-      // 2. Check for pending or rejected join requests
+      // 2. Check for approved join requests
       for (const classDoc of querySnapshot.docs) {
         const reqDoc = await getDoc(doc(db, "classrooms", classDoc.id, "joinRequests", uid));
         if (reqDoc.exists()) {
           const reqData = { id: reqDoc.id, ...reqDoc.data() } as JoinRequest;
           if (reqData.status === "approved") {
-            // Already approved, load classroom and activate
-            setClassroom({ id: classDoc.id, ...classDoc.data() } as Classroom);
+            const activeClass = { id: classDoc.id, ...classDoc.data() } as Classroom;
+            setClassroom(activeClass);
             setPendingJoinRequest(null);
+            localStorage.setItem(`student_classroom_${uid}`, classDoc.id);
+            await setDoc(doc(db, "users", uid), { classroomId: classDoc.id, status: "active" }, { merge: true });
             return;
-          } else {
-            // "pending" or "rejected"
+          }
+        }
+      }
+
+      // 3. Only if not approved anywhere, check for pending or rejected requests
+      for (const classDoc of querySnapshot.docs) {
+        const reqDoc = await getDoc(doc(db, "classrooms", classDoc.id, "joinRequests", uid));
+        if (reqDoc.exists()) {
+          const reqData = { id: reqDoc.id, ...reqDoc.data() } as JoinRequest;
+          if (reqData.status === "pending" || reqData.status === "rejected") {
             setPendingJoinRequest(reqData);
             setClassroom(null);
             return;
@@ -322,8 +369,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             // Once treasurer approves, immediately fetch classroom and unlock student dashboard
             const classDoc = await getDoc(doc(db, "classrooms", data.classroomId));
             if (classDoc.exists()) {
-              setClassroom({ id: classDoc.id, ...classDoc.data() } as Classroom);
+              const activeClass = { id: classDoc.id, ...classDoc.data() } as Classroom;
+              setClassroom(activeClass);
               setPendingJoinRequest(null);
+              localStorage.setItem(`student_classroom_${user.uid}`, data.classroomId);
+              await setDoc(doc(db, "users", user.uid), { classroomId: data.classroomId, status: "active" }, { merge: true });
             }
           }
         } else {
@@ -761,7 +811,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
       await setDoc(doc(db, "classrooms", targetClassroomId, "members", targetUserId), activeMember);
 
-      // 3. Write Audit Log
+      // 3. Update student user document so future logins load directly
+      try {
+        await setDoc(doc(db, "users", targetUserId), {
+          role: "student",
+          classroomId: targetClassroomId,
+          classroomName: classroom?.name || req?.classroomName || "",
+          status: "active"
+        }, { merge: true });
+        localStorage.setItem(`student_classroom_${targetUserId}`, targetClassroomId);
+      } catch (e) {
+        console.warn("Could not sync student user profile doc:", e);
+      }
+
+      // 4. Write Audit Log
       await addDoc(collection(db, "auditLogs"), {
         classroomId: targetClassroomId,
         userId: user.uid,

@@ -4,6 +4,9 @@ import { AppLogo } from "./AppLogo";
 import { OnboardingTour } from "./OnboardingTour";
 import { TermsModal } from "./TermsModal";
 import { CashoutModal } from "./CashoutModal";
+import { ExpenseDetailModal } from "./ExpenseDetailModal";
+import { WebsiteCredits } from "./WebsiteCredits";
+import { Expense } from "../types";
 import { 
   DollarSign, 
   Wallet, 
@@ -22,7 +25,9 @@ import {
   X,
   ShieldCheck,
   ArrowDownToLine,
-  Info
+  Info,
+  Eye,
+  Receipt
 } from "lucide-react";
 import html2canvas from "html2canvas-pro";
 import { motion } from "motion/react";
@@ -34,6 +39,7 @@ export const StudentDashboard: React.FC = () => {
   const [exportingImage, setExportingImage] = useState(false);
   const [exportedImageSrc, setExportedImageSrc] = useState<string | null>(null);
   const [showCashoutModal, setShowCashoutModal] = useState<boolean>(false);
+  const [selectedExpenseForDetail, setSelectedExpenseForDetail] = useState<Expense | null>(null);
 
   // Onboarding & Terms state
   const [showTour, setShowTour] = useState<boolean>(() => {
@@ -546,48 +552,63 @@ export const StudentDashboard: React.FC = () => {
               </div>
 
               <div className="overflow-x-auto w-full rounded-2xl border border-slate-100">
-                <table className="w-full text-sm min-w-[500px]">
+                <table className="w-full text-sm min-w-[550px]">
                   <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold text-[10px] uppercase tracking-wider">
                     <tr>
                       <th className="px-5 py-3 text-left">Date</th>
                       <th className="px-5 py-3 text-left">Item / Description</th>
                       <th className="px-5 py-3 text-left">Category</th>
                       <th className="px-5 py-3 text-left">Recipient</th>
-                      <th className="px-5 py-3 text-right">Amount</th>
+                      <th className="px-5 py-3 text-right">Total Amount</th>
+                      <th className="px-5 py-3 text-center">Receipt & Details</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700">
                     {expenses.map((e, idx) => (
-                      <tr key={e.id || idx} className="hover:bg-slate-50/50">
+                      <tr 
+                        key={e.id || idx} 
+                        onClick={() => setSelectedExpenseForDetail(e)}
+                        className="hover:bg-slate-50/70 transition cursor-pointer group"
+                      >
                         <td className="px-5 py-3.5 font-semibold text-slate-500 font-mono text-xs">
                           {new Date(e.createdAt).toLocaleDateString()}
                         </td>
                         <td className="px-5 py-3.5 font-bold text-slate-950">
-                          <div>{e.description}</div>
-                          {e.notes && <div className="text-[10px] text-slate-400 font-medium mt-0.5">{e.notes}</div>}
-                          
-                          {/* Receipt image viewer inside the student portal */}
-                          {e.receiptURL && (
-                            <a 
-                              href={e.receiptURL} 
-                              target="_blank" 
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 hover:text-emerald-700 mt-1 cursor-pointer"
-                            >
-                              <FileText className="h-3 w-3" /> View Receipt
-                            </a>
-                          )}
+                          <div className="group-hover:text-emerald-700 transition">{e.description}</div>
+                          {e.notes && <div className="text-[10px] text-slate-400 font-normal mt-0.5 truncate max-w-xs">{e.notes}</div>}
                         </td>
                         <td className="px-5 py-3.5">
-                          <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-xs font-semibold">{e.category}</span>
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-xs font-semibold">{e.category}</span>
                         </td>
-                        <td className="px-5 py-3.5 font-semibold text-slate-600">{e.paidTo}</td>
-                        <td className="px-5 py-3.5 text-right font-bold text-red-600">-₱{e.amount.toLocaleString()}</td>
+                        <td className="px-5 py-3.5 font-semibold text-slate-600">{e.paidTo || "—"}</td>
+                        <td className="px-5 py-3.5 text-right font-black text-red-600">-₱{e.amount.toLocaleString()}</td>
+                        <td className="px-5 py-3.5 text-center">
+                          <button
+                            type="button"
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              setSelectedExpenseForDetail(e);
+                            }}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 transition cursor-pointer"
+                          >
+                            {e.receiptURL ? (
+                              <>
+                                <Receipt className="h-3 w-3 text-emerald-600" />
+                                <span>Receipt</span>
+                              </>
+                            ) : (
+                              <>
+                                <Eye className="h-3 w-3" />
+                                <span>Details</span>
+                              </>
+                            )}
+                          </button>
+                        </td>
                       </tr>
                     ))}
                     {expenses.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="px-5 py-10 text-center text-slate-400 italic font-medium">
+                        <td colSpan={6} className="px-5 py-10 text-center text-slate-400 italic font-medium">
                           No classroom expenses have been recorded yet.
                         </td>
                       </tr>
@@ -701,14 +722,8 @@ export const StudentDashboard: React.FC = () => {
         )}
         </div>
 
-        {/* Footer Credits */}
-        <footer className="mt-8 border-t border-slate-200/60 pt-6 pb-4 text-center text-xs text-slate-400">
-          <p className="tracking-wide">
-            Powered by <span className="font-semibold text-slate-600">ClassFund Manager</span>
-            <span className="mx-2 text-slate-300">|</span>
-            Designed by <span className="font-bold text-emerald-600">Darryl jay Castillo (SHIRO)</span>
-          </p>
-        </footer>
+        {/* Professional Footer Credits */}
+        <WebsiteCredits onOpenTerms={() => setShowTerms(true)} />
       </main>
 
       {/* Resilient Sandbox Image Export Help Dialog */}
@@ -795,13 +810,29 @@ export const StudentDashboard: React.FC = () => {
       />
 
       {/* Student Cashout Request Modal */}
-      <CashoutModal
-        isOpen={showCashoutModal}
-        onClose={() => setShowCashoutModal(false)}
-        availableCashout={remainingAvailableCashout}
-        totalPaid={myTotalPaid}
-        perStudentExpenseShare={perStudentExpenseShare}
-      />
+      {showCashoutModal && (
+        <CashoutModal
+          isOpen={showCashoutModal}
+          onClose={() => setShowCashoutModal(false)}
+          eligibleCashoutAmount={remainingAvailableCashout}
+          availableCashout={remainingAvailableCashout}
+          totalContributed={myTotalPaid}
+          totalPaid={myTotalPaid}
+          totalClassExpenses={totalClassExpenses}
+          enrolledStudentsCount={enrolledStudentsCount}
+          expenseDeductionShare={perStudentExpenseShare}
+          perStudentExpenseShare={perStudentExpenseShare}
+        />
+      )}
+
+      {/* Expense Detail & Receipt Inspection Modal */}
+      {selectedExpenseForDetail && (
+        <ExpenseDetailModal
+          expense={selectedExpenseForDetail}
+          enrolledStudentsCount={enrolledStudentsCount}
+          onClose={() => setSelectedExpenseForDetail(null)}
+        />
+      )}
     </div>
   );
 };

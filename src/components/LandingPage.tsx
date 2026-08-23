@@ -3,6 +3,7 @@ import { useApp } from "../context/AppContext";
 import { Shield, Users, FileText, CheckCircle2, Download, FileLock2 } from "lucide-react";
 import { AppLogo } from "./AppLogo";
 import { TermsModal } from "./TermsModal";
+import { WebsiteCredits } from "./WebsiteCredits";
 
 export const LandingPage: React.FC = () => {
   const { signInGoogle, error, setError } = useApp();
@@ -216,28 +217,8 @@ export const LandingPage: React.FC = () => {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 py-6 text-center text-xs text-slate-400 px-6">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="tracking-wide">
-            Powered by <span className="font-semibold text-slate-600">ClassFund Manager</span>
-            <span className="mx-2 text-slate-300">|</span>
-            Designed by <span className="font-bold text-emerald-600">Darryl jay Castillo (SHIRO)</span>
-          </p>
-          <div className="flex items-center gap-4 text-[11px]">
-            <button
-              onClick={() => setShowTerms(true)}
-              className="text-slate-500 hover:text-emerald-600 font-semibold underline underline-offset-2 transition cursor-pointer"
-            >
-              Terms of Service & Privacy
-            </button>
-            <span className="text-slate-300">&bull;</span>
-            <span className="text-slate-400">Firebase Firestore</span>
-            <span className="text-slate-300">&bull;</span>
-            <span className="text-emerald-600 font-bold">SHIRO &bull; Creator</span>
-          </div>
-        </div>
-      </footer>
+      {/* Professional Footer Credits */}
+      <WebsiteCredits onOpenTerms={() => setShowTerms(true)} />
 
       {/* Terms of Service Modal */}
       <TermsModal isOpen={showTerms} onClose={() => setShowTerms(false)} />

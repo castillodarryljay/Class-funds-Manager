@@ -180,8 +180,8 @@ function AppContent() {
       return <StudentDashboard />;
     }
 
-    // If Student has a pending or rejected join request, show approval status tracker
-    if (pendingJoinRequest) {
+    // If Student has an active pending or rejected join request, show approval status tracker
+    if (pendingJoinRequest && pendingJoinRequest.status !== "approved") {
       return <StudentPendingApproval />;
     }
 

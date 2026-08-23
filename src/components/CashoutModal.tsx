@@ -4,25 +4,37 @@ import { X, DollarSign, Wallet, AlertCircle, CheckCircle2, ArrowRight, ShieldChe
 import { motion } from "motion/react";
 
 interface CashoutModalProps {
+  isOpen?: boolean;
   onClose: () => void;
-  totalContributed: number;
-  totalClassExpenses: number;
-  enrolledStudentsCount: number;
-  expenseDeductionShare: number;
-  eligibleCashoutAmount: number;
+  totalContributed?: number;
+  totalPaid?: number;
+  totalClassExpenses?: number;
+  enrolledStudentsCount?: number;
+  expenseDeductionShare?: number;
+  perStudentExpenseShare?: number;
+  eligibleCashoutAmount?: number;
+  availableCashout?: number;
 }
 
 export const CashoutModal: React.FC<CashoutModalProps> = ({
+  isOpen = true,
   onClose,
   totalContributed,
-  totalClassExpenses,
-  enrolledStudentsCount,
+  totalPaid,
+  totalClassExpenses = 0,
+  enrolledStudentsCount = 1,
   expenseDeductionShare,
-  eligibleCashoutAmount
+  perStudentExpenseShare,
+  eligibleCashoutAmount,
+  availableCashout
 }) => {
   const { user, requestCashout } = useApp();
 
-  const [requestedAmount, setRequestedAmount] = useState<number>(() => Math.max(0, eligibleCashoutAmount));
+  const finalTotalContributed = totalContributed ?? totalPaid ?? 0;
+  const finalExpenseShare = expenseDeductionShare ?? perStudentExpenseShare ?? 0;
+  const finalEligibleAmount = eligibleCashoutAmount ?? availableCashout ?? Math.max(0, finalTotalContributed - finalExpenseShare);
+
+  const [requestedAmount, setRequestedAmount] = useState<number>(() => Math.max(0, finalEligibleAmount));
   const [payoutMethod, setPayoutMethod] = useState<"GCash" | "Cash" | "Bank Transfer" | "Other">("GCash");
   const [payoutAccountName, setPayoutAccountName] = useState<string>(user?.name || "");
   const [payoutAccountNumber, setPayoutAccountNumber] = useState<string>(user?.contact || "");
@@ -31,6 +43,8 @@ export const CashoutModal: React.FC<CashoutModalProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  if (isOpen === false) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,8 +56,8 @@ export const CashoutModal: React.FC<CashoutModalProps> = ({
       return;
     }
 
-    if (amountNum > eligibleCashoutAmount) {
-      setErrorMessage(`Requested amount (₱${amountNum.toLocaleString()}) cannot exceed your maximum eligible amount of ₱${eligibleCashoutAmount.toLocaleString()}.`);
+    if (amountNum > finalEligibleAmount) {
+      setErrorMessage(`Requested amount (₱${amountNum.toLocaleString()}) cannot exceed your maximum eligible amount of ₱${finalEligibleAmount.toLocaleString()}.`);
       return;
     }
 
@@ -56,11 +70,11 @@ export const CashoutModal: React.FC<CashoutModalProps> = ({
     try {
       const success = await requestCashout({
         requestedAmount: amountNum,
-        totalContributed,
-        totalClassExpenses,
-        enrolledStudentsCount,
-        expenseDeductionShare,
-        eligibleCashoutAmount,
+        totalContributed: finalTotalContributed,
+        totalClassExpenses: totalClassExpenses || 0,
+        enrolledStudentsCount: enrolledStudentsCount || 1,
+        expenseDeductionShare: finalExpenseShare,
+        eligibleCashoutAmount: finalEligibleAmount,
         payoutMethod,
         payoutAccountName: payoutAccountName.trim(),
         payoutAccountNumber: payoutAccountNumber.trim(),
@@ -129,22 +143,22 @@ export const CashoutModal: React.FC<CashoutModalProps> = ({
           <div className="grid grid-cols-3 gap-2 text-center bg-white p-3 rounded-2xl border border-slate-200/70 shadow-xs">
             <div>
               <span className="text-[10px] text-slate-400 font-bold block">Contributed</span>
-              <span className="text-sm font-black text-slate-900">₱{totalContributed.toLocaleString()}</span>
+              <span className="text-sm font-black text-slate-900">₱{(finalTotalContributed || 0).toLocaleString()}</span>
             </div>
             <div className="border-x border-slate-100 px-1">
               <span className="text-[10px] text-slate-400 font-bold block">Share of Expenses</span>
-              <span className="text-sm font-black text-red-600">-₱{Math.round(expenseDeductionShare).toLocaleString()}</span>
+              <span className="text-sm font-black text-red-600">-₱{Math.round(finalExpenseShare || 0).toLocaleString()}</span>
             </div>
             <div>
               <span className="text-[10px] text-emerald-600 font-bold block">Eligible to Cashout</span>
-              <span className="text-sm font-black text-emerald-600">₱{Math.round(eligibleCashoutAmount).toLocaleString()}</span>
+              <span className="text-sm font-black text-emerald-600">₱{Math.round(finalEligibleAmount || 0).toLocaleString()}</span>
             </div>
           </div>
 
           <div className="flex items-start gap-2 text-[11px] text-slate-500 bg-amber-50/70 border border-amber-200/70 p-2.5 rounded-xl">
             <Info className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
             <p className="leading-snug">
-              Total class expenses (<strong>₱{totalClassExpenses.toLocaleString()}</strong>) are divided equally across all <strong>{enrolledStudentsCount}</strong> students (₱{expenseDeductionShare.toFixed(2)}/student), leaving your net claimable balance.
+              Total class expenses (<strong>₱{(totalClassExpenses || 0).toLocaleString()}</strong>) are divided equally across all <strong>{enrolledStudentsCount || 1}</strong> students (₱{(finalExpenseShare || 0).toFixed(2)}/student), leaving your net claimable balance.
             </p>
           </div>
         </div>
@@ -180,7 +194,7 @@ export const CashoutModal: React.FC<CashoutModalProps> = ({
                 type="number"
                 step="any"
                 min="1"
-                max={Math.max(1, eligibleCashoutAmount)}
+                max={Math.max(1, finalEligibleAmount || 0)}
                 required
                 value={requestedAmount || ""}
                 onChange={(e) => setRequestedAmount(Number(e.target.value))}
@@ -188,8 +202,8 @@ export const CashoutModal: React.FC<CashoutModalProps> = ({
               />
               <button
                 type="button"
-                onClick={() => setRequestedAmount(eligibleCashoutAmount)}
-                className="absolute right-2.5 top-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2.5 py-1 rounded-lg transition"
+                onClick={() => setRequestedAmount(finalEligibleAmount)}
+                className="absolute right-2.5 top-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2.5 py-1 rounded-lg transition cursor-pointer"
               >
                 Max (100%)
               </button>
