@@ -27,6 +27,13 @@ service cloud.firestore {
         allow read: if true;
         allow write: if true;
       }
+
+      // --- Classroom Join Requests ---
+      // Pending student registration requests for treasurer approval
+      match /joinRequests/{userId} {
+        allow read: if true;
+        allow write: if true;
+      }
     }
     
     // --- Payments ---
@@ -37,6 +44,12 @@ service cloud.firestore {
     
     // --- Expenses ---
     match /expenses/{expenseId} {
+      allow read: if true;
+      allow write: if true;
+    }
+    
+    // --- Cashout Requests ---
+    match /cashoutRequests/{cashoutId} {
       allow read: if true;
       allow write: if true;
     }

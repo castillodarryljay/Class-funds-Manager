@@ -27,27 +27,22 @@ export const ClassroomCreate: React.FC<ClassroomCreateProps> = ({ onBack, onCrea
     e.preventDefault();
     if (!name.trim() || !school.trim()) return;
 
-    if (!confirm(`Are you sure you want to create the classroom workspace "${name.trim()}"?`)) {
-      return;
-    }
-
     setSubmitting(true);
     try {
       const cls = await createClassroom({
-        name,
-        school,
-        program,
+        name: name.trim(),
+        school: school.trim(),
+        program: program.trim(),
         yearLevel,
-        section,
+        section: section.trim(),
         schoolYear,
-        description
+        description: description.trim()
       });
       if (cls) {
         setCreatedClassroom(cls);
-        alert("Classroom workspace initialized successfully!");
       }
     } catch (err) {
-      console.error(err);
+      console.error("Create classroom error:", err);
     } finally {
       setSubmitting(false);
     }

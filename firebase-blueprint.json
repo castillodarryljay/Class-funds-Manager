@@ -102,6 +102,29 @@
         "timestamp": { "type": "string" }
       },
       "required": ["classroomId", "userId", "userName", "userRole", "action", "details", "timestamp"]
+    },
+    "JoinRequest": {
+      "title": "Classroom Join Request",
+      "description": "Student registration request requiring treasurer review and approval",
+      "type": "object",
+      "properties": {
+        "classroomId": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "studentId": { "type": "string" },
+        "program": { "type": "string" },
+        "yearLevel": { "type": "string" },
+        "section": { "type": "string" },
+        "contact": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "requestedAt": { "type": "string" },
+        "rejectionReason": { "type": "string" },
+        "reviewedAt": { "type": "string" },
+        "reviewedBy": { "type": "string" }
+      },
+      "required": ["classroomId", "userId", "name", "email", "status", "requestedAt"]
     }
   },
   "firestore": {
@@ -116,6 +139,10 @@
     "classrooms/{classroomId}/members/{userId}": {
       "schema": { "$ref": "#/entities/Member" },
       "description": "Members of a specific classroom"
+    },
+    "classrooms/{classroomId}/joinRequests/{userId}": {
+      "schema": { "$ref": "#/entities/JoinRequest" },
+      "description": "Student join requests submitted for treasurer approval"
     },
     "payments/{paymentId}": {
       "schema": { "$ref": "#/entities/Payment" },

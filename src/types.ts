@@ -40,6 +40,31 @@ export interface Member {
   joinedAt: string;
   status: "active" | "inactive";
   studentId?: string;
+  program?: string;
+  yearLevel?: string;
+  section?: string;
+  contact?: string;
+  photoURL?: string;
+}
+
+export interface JoinRequest {
+  id: string; // usually userId
+  classroomId: string;
+  classroomName?: string;
+  userId: string;
+  name: string;
+  email: string;
+  photoURL?: string;
+  studentId: string;
+  program: string;
+  yearLevel: string;
+  section: string;
+  contact?: string;
+  status: "pending" | "approved" | "rejected";
+  requestedAt: string;
+  rejectionReason?: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
 }
 
 export interface Payment {
@@ -78,4 +103,29 @@ export interface AuditLog {
   action: string;
   details: string;
   timestamp: string;
+}
+
+export interface CashoutRequest {
+  id: string;
+  classroomId: string;
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  studentIdNumber?: string;
+  requestedAmount: number;
+  totalContributed: number;
+  totalClassExpenses: number;
+  enrolledStudentsCount: number;
+  expenseDeductionShare: number;
+  eligibleCashoutAmount: number;
+  payoutMethod: "Cash" | "GCash" | "Bank Transfer" | "Other";
+  payoutAccountName: string;
+  payoutAccountNumber: string;
+  reason?: string;
+  status: "pending" | "approved" | "rejected" | "disbursed";
+  requestedAt: string;
+  processedAt?: string;
+  processedBy?: string;
+  transactionReference?: string;
+  notes?: string;
 }

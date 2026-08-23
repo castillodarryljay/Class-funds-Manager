@@ -30,11 +30,22 @@ import {
   ToggleRight,
   Menu,
   X,
-  HelpCircle
+  HelpCircle,
+  UserCheck,
+  Mail,
+  UserX,
+  GraduationCap,
+  Layers,
+  Phone,
+  Trash2,
+  ArrowDownToLine,
+  Info
 } from "lucide-react";
 import { PaymentModal } from "./PaymentModal";
 import { ExpenseModal } from "./ExpenseModal";
 import { ReportView } from "./ReportView";
+import { JoinRequestsManager } from "./JoinRequestsManager";
+import { CashoutsManager } from "./CashoutsManager";
 import { Classroom, Member, Payment } from "../types";
 
 export interface TreasurerDashboardProps {
@@ -49,14 +60,17 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
     members, 
     payments, 
     expenses, 
+    joinRequests,
+    cashoutRequests,
     auditLogs, 
     updateClassroomSettings, 
     selectClassroom,
     deleteClassroom,
+    removeMember,
     signOutUser 
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<"overview" | "students" | "payments" | "funds" | "reports" | "invite" | "audit" | "settings">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "requests" | "cashouts" | "students" | "payments" | "funds" | "reports" | "invite" | "audit" | "settings">("overview");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   // Modal controllers
@@ -84,8 +98,14 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
     return null; // Safety, App.tsx handles loading or empty workspace redirect
   }
 
+  // Pending Join Requests Count
+  const pendingRequestsCount = joinRequests.filter(r => r.status === "pending").length;
+  // Pending Cashout Claims Count
+  const pendingCashoutsCount = cashoutRequests.filter(r => r.status === "pending").length;
+
   // Calculated Statistics
   const studentsCount = members.filter(m => m.role === "student" || m.role === "treasurer").length;
+  const enrolledStudentsCount = Math.max(1, studentsCount);
   
   // Total Collected (Income)
   const totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
@@ -93,6 +113,9 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
   // Total Expenses (Expenses)
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
   
+  // Equal Expense Share per Student
+  const perStudentExpenseShare = totalExpenses / enrolledStudentsCount;
+
   // Net Balance
   const fundBalance = totalCollected - totalExpenses;
 
@@ -104,7 +127,18 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
     return paid === 0;
   }).length;
 
-  // Invitation link details
+  const navigationTabs = [
+    { id: "overview", label: "Overview", icon: Landmark },
+    { id: "requests", label: "Join Requests", icon: UserCheck, badge: pendingRequestsCount },
+    { id: "cashouts", label: "Cashout Claims", icon: ArrowDownToLine, badge: pendingCashoutsCount },
+    { id: "students", label: "Students", icon: Users },
+    { id: "payments", label: "Payments", icon: Wallet },
+    { id: "funds", label: "Fund Records", icon: TrendingUp },
+    { id: "reports", label: "Reports", icon: FileText },
+    { id: "invite", label: "Invite Students", icon: ExternalLink },
+    { id: "audit", label: "Audit Logs", icon: Clock },
+    { id: "settings", label: "Settings", icon: Settings }
+  ];
   const getInviteLink = () => {
     return `${window.location.origin}/?join=${classroom.inviteCode}`;
   };
@@ -126,7 +160,7 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
     await updateClassroomSettings({ inviteStatus: nextStatus });
   };
 
-  // Student list mapping with calculation (includes Treasurer as a contributing student)
+  // Student list mapping with calculation (Total Contributed, Shared Expense Share, and Current Balance)
   const mappedStudents = members
     .filter(m => m.role === "student" || m.role === "treasurer")
     .map(student => {
@@ -134,9 +168,16 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
       const paid = studentPayments.reduce((sum, p) => sum + p.amount, 0);
       const hasContributed = paid > 0;
 
+      const sCashouts = cashoutRequests.filter(c => c.studentId === student.uid && c.status === "disbursed");
+      const disbursed = sCashouts.reduce((sum, c) => sum + c.requestedAmount, 0);
+      const currentBalance = paid - perStudentExpenseShare - disbursed;
+
       return {
         member: student,
         paid,
+        expenseShare: perStudentExpenseShare,
+        disbursed,
+        currentBalance,
         hasContributed
       };
     });
@@ -194,15 +235,35 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
     const sPayments = payments.filter(p => p.studentId === selectedStudentDetail.uid);
     const paid = sPayments.reduce((sum, p) => sum + p.amount, 0);
     const hasContributed = paid > 0;
+    
+    const sDisbursed = cashoutRequests
+      .filter(c => c.studentId === selectedStudentDetail.uid && c.status === "disbursed")
+      .reduce((sum, c) => sum + c.requestedAmount, 0);
+
+    const sPendingCashout = cashoutRequests
+      .filter(c => c.studentId === selectedStudentDetail.uid && (c.status === "pending" || c.status === "approved"))
+      .reduce((sum, c) => sum + c.requestedAmount, 0);
+
+    const currentBalance = paid - perStudentExpenseShare - sDisbursed;
+    const isPositiveBalance = currentBalance >= 0;
+
     const statusLabel = hasContributed ? "Contributor" : "No Contribution";
     const statusClass = hasContributed ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600";
+
+    const handleRemoveStudent = async () => {
+      if (selectedStudentDetail.uid === user.uid) {
+        return;
+      }
+      await removeMember(classroom.id, selectedStudentDetail.uid);
+      setSelectedStudentDetail(null);
+    };
 
     return (
       <div className="bg-white rounded-3xl border border-slate-200/80 p-6 space-y-6 text-left animate-fade-in" id="student-profile-view">
         <div className="flex justify-between items-start">
           <button 
             onClick={() => setSelectedStudentDetail(null)}
-            className="text-xs font-bold text-slate-500 hover:text-slate-900 flex items-center gap-1 transition"
+            className="text-xs font-bold text-slate-500 hover:text-slate-900 flex items-center gap-1 transition cursor-pointer"
           >
             &larr; Back to Student List
           </button>
@@ -217,37 +278,125 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
           <div className="bg-emerald-50 text-emerald-700 h-14 w-14 rounded-2xl flex items-center justify-center font-black text-lg border border-emerald-100/50">
             {selectedStudentDetail.name.charAt(0)}
           </div>
-          <div>
-            <h3 className="font-extrabold text-slate-950 text-lg leading-tight">{selectedStudentDetail.name}</h3>
-            <p className="text-xs text-slate-500 font-semibold mt-0.5">Student ID: {selectedStudentDetail.studentId || "N/A"}</p>
-            <p className="text-xs text-slate-400 font-semibold">{selectedStudentDetail.email}</p>
+          <div className="min-w-0">
+            <h3 className="font-extrabold text-slate-950 text-lg leading-tight truncate">{selectedStudentDetail.name}</h3>
+            <p className="text-xs text-slate-500 font-semibold mt-0.5 font-mono">ID: {selectedStudentDetail.studentId || "N/A"}</p>
           </div>
         </div>
 
-        {/* Contributions Summary */}
-        <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Contributed</span>
-            <span className="font-extrabold text-emerald-600 text-sm">₱{paid.toLocaleString()}</span>
+        {/* Google Verified Email Box */}
+        <div className="bg-emerald-50/70 border border-emerald-200/70 p-3.5 rounded-2xl space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-emerald-900 flex items-center gap-1">
+              <Mail className="w-3.5 h-3.5 text-emerald-600" /> Registered Email
+            </span>
+            <span className="text-[9px] font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded border border-emerald-200">
+              Google Verified
+            </span>
           </div>
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Logged Transactions</span>
-            <span className="font-extrabold text-slate-900 text-sm">{sPayments.length}</span>
+          <p className="text-xs font-black text-slate-950 break-all font-mono">
+            {selectedStudentDetail.email}
+          </p>
+        </div>
+
+        {/* Course & Metadata */}
+        <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/60 text-xs space-y-2">
+          <div className="flex justify-between">
+            <span className="text-slate-500 font-bold flex items-center gap-1">
+              <GraduationCap className="w-3.5 h-3.5 text-slate-400" /> Course &amp; Section:
+            </span>
+            <span className="font-bold text-slate-900">
+              {selectedStudentDetail.program || classroom.program || "General"} &bull; {selectedStudentDetail.section || classroom.section || "A"} ({selectedStudentDetail.yearLevel || classroom.yearLevel || "2nd Year"})
+            </span>
+          </div>
+          {selectedStudentDetail.contact && (
+            <div className="flex justify-between">
+              <span className="text-slate-500 font-bold flex items-center gap-1">
+                <Phone className="w-3.5 h-3.5 text-slate-400" /> Contact:
+              </span>
+              <span className="font-bold text-slate-900">{selectedStudentDetail.contact}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Financial Standing & Current Balance (Equally Less All Expenses) */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Financial Standing</span>
+            <span className="text-[10px] font-bold text-emerald-600">Equitable Balance Formula</span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+            {/* Contributed */}
+            <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Contributed</span>
+              <span className="text-base font-black text-slate-950 block mt-0.5">₱{paid.toLocaleString()}</span>
+              <span className="text-[9px] text-slate-400 font-medium">{sPayments.length} payments</span>
+            </div>
+
+            {/* Expense Share */}
+            <div className="bg-red-50/50 p-3.5 rounded-2xl border border-red-200/60">
+              <span className="text-[10px] font-bold text-red-600 uppercase tracking-wider block">Shared Expense</span>
+              <span className="text-base font-black text-red-600 block mt-0.5">-₱{Math.round(perStudentExpenseShare).toLocaleString()}</span>
+              <span className="text-[9px] text-red-500/80 font-medium">Equal 1/{enrolledStudentsCount} share</span>
+            </div>
+
+            {/* Current Net Balance */}
+            <div className={`col-span-2 sm:col-span-1 p-3.5 rounded-2xl border ${
+              isPositiveBalance 
+                ? "bg-emerald-50/70 border-emerald-200/80 text-emerald-950" 
+                : "bg-amber-50/70 border-amber-200/80 text-amber-950"
+            }`}>
+              <span className="text-[10px] font-black uppercase tracking-wider block text-emerald-700">Current Balance</span>
+              <span className={`text-base font-black block mt-0.5 ${isPositiveBalance ? "text-emerald-600" : "text-amber-700"}`}>
+                {currentBalance < 0 ? `-₱${Math.abs(Math.round(currentBalance)).toLocaleString()}` : `₱${Math.round(currentBalance).toLocaleString()}`}
+              </span>
+              <span className="text-[9px] font-semibold block text-slate-500">
+                {isPositiveBalance ? "Net Claimable" : "Unpaid Share"}
+              </span>
+            </div>
+          </div>
+
+          {sDisbursed > 0 && (
+            <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs flex justify-between items-center text-slate-600">
+              <span>Disbursed Cashouts:</span>
+              <strong className="text-slate-900">₱{sDisbursed.toLocaleString()}</strong>
+            </div>
+          )}
+
+          {/* Mathematical Explainer Note */}
+          <div className="bg-emerald-50/50 border border-emerald-100 p-3 rounded-2xl text-[11px] text-emerald-950 space-y-1">
+            <p className="font-bold flex items-center gap-1">
+              <Info className="h-3.5 w-3.5 text-emerald-700" /> Current Balance Computation
+            </p>
+            <p className="text-emerald-800 leading-relaxed text-[10px]">
+              ₱{paid.toLocaleString()} Contributed &minus; ₱{perStudentExpenseShare.toFixed(2)} Expense Share {sDisbursed > 0 ? `&minus; ₱${sDisbursed.toLocaleString()} Disbursed ` : ""}= <strong className="text-emerald-900">₱{currentBalance.toFixed(2)} Current Net Balance</strong>.
+            </p>
           </div>
         </div>
 
         {/* Action Controls */}
-        <div className="flex gap-3">
+        <div className="flex gap-2.5">
           <button
             onClick={() => {
               setSelectedStudentForPayment(selectedStudentDetail);
               setSelectedPaymentForEdit(undefined);
               setShowPaymentModal(true);
             }}
-            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-600/10"
+            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-600/10 cursor-pointer"
           >
             <Plus className="h-4 w-4" /> Record Payment
           </button>
+
+          {selectedStudentDetail.uid !== user.uid && (
+            <button
+              onClick={handleRemoveStudent}
+              className="p-2.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl text-xs font-bold transition flex items-center justify-center cursor-pointer"
+              title="Remove Student from Classroom"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
         {/* Personal Payment logs list */}
@@ -273,7 +422,7 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
                       setSelectedPaymentForEdit(p);
                       setShowPaymentModal(true);
                     }}
-                    className="p-1.5 text-slate-400 hover:text-slate-900 transition hover:bg-slate-100 rounded-lg"
+                    className="p-1.5 text-slate-400 hover:text-slate-900 transition hover:bg-slate-100 rounded-lg cursor-pointer"
                     title="Correct Payment"
                   >
                     <Edit className="h-3.5 w-3.5" />
@@ -390,16 +539,7 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
 
               {/* Navigation links */}
               <nav className="space-y-1.5 text-left">
-                {[
-                  { id: "overview", label: "Overview", icon: Landmark },
-                  { id: "students", label: "Students", icon: Users },
-                  { id: "payments", label: "Payments", icon: Wallet },
-                  { id: "funds", label: "Fund Records", icon: TrendingUp },
-                  { id: "reports", label: "Reports", icon: FileText },
-                  { id: "invite", label: "Invite Students", icon: ExternalLink },
-                  { id: "audit", label: "Audit Logs", icon: Clock },
-                  { id: "settings", label: "Settings", icon: Settings }
-                ].map(tab => {
+                {navigationTabs.map(tab => {
                   const Icon = tab.icon;
                   return (
                     <button
@@ -409,13 +549,21 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
                         setSelectedStudentDetail(null);
                         setIsMobileMenuOpen(false);
                       }}
-                      className={`w-full py-2 px-3 rounded-xl text-xs font-bold transition flex items-center gap-2.5 ${
+                      className={`w-full py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-between ${
                         activeTab === tab.id
                           ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/10"
                           : "text-slate-400 hover:text-white hover:bg-slate-900"
                       }`}
                     >
-                      <Icon className="h-4 w-4" /> {tab.label}
+                      <div className="flex items-center gap-2.5">
+                        <Icon className="h-4 w-4" /> 
+                        <span>{tab.label}</span>
+                      </div>
+                      {tab.badge && tab.badge > 0 ? (
+                        <span className="bg-amber-400 text-amber-950 font-black text-[10px] px-1.5 py-0.2 rounded-full">
+                          {tab.badge}
+                        </span>
+                      ) : null}
                     </button>
                   );
                 })}
@@ -480,14 +628,7 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
               </button>
               <button
                 onClick={async () => {
-                  if (confirm(`Are you sure you want to permanently delete the classroom "${classroom.name}"? This action cannot be undone.`)) {
-                    const success = await deleteClassroom(classroom.id);
-                    if (success) {
-                      alert("Classroom deleted successfully!");
-                    } else {
-                      alert("Failed to delete classroom.");
-                    }
-                  }
+                  await deleteClassroom(classroom.id);
                 }}
                 className="w-full py-1.5 bg-red-950/40 hover:bg-red-700 text-red-300 hover:text-white rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer"
               >
@@ -512,16 +653,7 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
 
           {/* Navigation links */}
           <nav className="space-y-1.5 text-left">
-            {[
-              { id: "overview", label: "Overview", icon: Landmark },
-              { id: "students", label: "Students", icon: Users },
-              { id: "payments", label: "Payments", icon: Wallet },
-              { id: "funds", label: "Fund Records", icon: TrendingUp },
-              { id: "reports", label: "Reports", icon: FileText },
-              { id: "invite", label: "Invite Students", icon: ExternalLink },
-              { id: "audit", label: "Audit Logs", icon: Clock },
-              { id: "settings", label: "Settings", icon: Settings }
-            ].map(tab => {
+            {navigationTabs.map(tab => {
               const Icon = tab.icon;
               return (
                 <button
@@ -530,13 +662,21 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
                     setActiveTab(tab.id as any);
                     setSelectedStudentDetail(null);
                   }}
-                  className={`w-full py-2 px-3 rounded-xl text-xs font-bold transition flex items-center gap-2.5 ${
+                  className={`w-full py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-between ${
                     activeTab === tab.id
                       ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/10"
                       : "text-slate-400 hover:text-white hover:bg-slate-900"
                   }`}
                 >
-                  <Icon className="h-4 w-4" /> {tab.label}
+                  <div className="flex items-center gap-2.5">
+                    <Icon className="h-4 w-4" /> 
+                    <span>{tab.label}</span>
+                  </div>
+                  {tab.badge && tab.badge > 0 ? (
+                    <span className="bg-amber-400 text-amber-950 font-black text-[10px] px-1.5 py-0.2 rounded-full">
+                      {tab.badge}
+                    </span>
+                  ) : null}
                 </button>
               );
             })}
@@ -603,8 +743,34 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
         {activeTab === "overview" && (
           <div className="space-y-6">
             
+            {/* Pending Requests Alert */}
+            {pendingRequestsCount > 0 && (
+              <div className="bg-gradient-to-r from-amber-500/15 via-amber-50 to-white border border-amber-300/80 rounded-3xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm animate-fade-in text-left">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-11 h-11 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-bold shrink-0 shadow-sm shadow-amber-500/20">
+                    <UserCheck className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-amber-950 text-sm flex items-center gap-2">
+                      <span>{pendingRequestsCount} Student Registration Request{pendingRequestsCount > 1 ? "s" : ""} Pending Review</span>
+                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+                    </h4>
+                    <p className="text-xs text-amber-800/90 font-medium">
+                      Students have submitted their details and verified emails. Review and approve their admission.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setActiveTab("requests")}
+                  className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition flex items-center gap-1.5 shrink-0 shadow-sm shadow-amber-600/20"
+                >
+                  Review Requests ({pendingRequestsCount}) <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+            
             {/* statistics cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-left">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3.5 text-left">
               <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Total Collected</span>
                 <span className="text-2xl font-black text-emerald-600">₱{totalCollected.toLocaleString()}</span>
@@ -624,9 +790,27 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
               </div>
 
               <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Expense / Student</span>
+                <span className="text-2xl font-black text-red-600">₱{Math.round(perStudentExpenseShare).toLocaleString()}</span>
+                <span className="text-[10px] text-slate-400 block font-semibold">₱{totalExpenses.toLocaleString()} &divide; {enrolledStudentsCount} students</span>
+              </div>
+
+              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-2 col-span-2 lg:col-span-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Enrolled Students</span>
                 <span className="text-2xl font-black text-slate-950">{studentsCount}</span>
                 <span className="text-[10px] text-slate-400 block font-semibold">{nonContributorsCount} non-contributors</span>
+              </div>
+            </div>
+
+            {/* Formula Banner for Equal Expense Sharing Transparency */}
+            <div className="bg-emerald-50/70 border border-emerald-100/80 p-4 rounded-3xl flex items-start gap-3.5 text-left">
+              <Info className="h-5 w-5 text-emerald-700 mt-0.5 shrink-0" />
+              <div className="space-y-1 text-xs text-emerald-950">
+                <p className="font-extrabold text-sm text-emerald-950">Equitable Student Balance System Active</p>
+                <p className="text-[11px] text-emerald-800 leading-relaxed">
+                  Every enrolled student's current balance is automatically calculated as: <strong>Total Contributed &minus; Equal Share of Expenses (₱{perStudentExpenseShare.toFixed(2)}) &minus; Disbursed Cashouts</strong>.
+                  This ensures full fairness where all classroom expenses are shared equally across all {enrolledStudentsCount} student accounts.
+                </p>
               </div>
             </div>
 
@@ -732,7 +916,17 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
           </div>
         )}
 
-        {/* 2. STUDENTS TAB */}
+        {/* 2. JOIN REQUESTS APPROVAL CONSOLE */}
+        {activeTab === "requests" && (
+          <JoinRequestsManager />
+        )}
+
+        {/* 2.1 CASHOUT CLAIMS DISBURSEMENT CONSOLE */}
+        {activeTab === "cashouts" && (
+          <CashoutsManager />
+        )}
+
+        {/* 3. STUDENTS TAB */}
         {activeTab === "students" && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 text-left">
             
@@ -773,39 +967,50 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
 
               {/* Students Table */}
               <div className="overflow-x-auto w-full rounded-2xl border border-slate-100">
-                <table className="w-full text-xs min-w-[500px]">
+                <table className="w-full text-xs min-w-[650px]">
                   <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider">
                     <tr>
-                      <th className="px-5 py-3 text-left">Student</th>
-                      <th className="px-5 py-3 text-left">Student ID</th>
-                      <th className="px-5 py-3 text-right">Contributed</th>
-                      <th className="px-5 py-3 text-center">Status</th>
-                      <th className="px-5 py-3 text-center">Actions</th>
+                      <th className="px-4 py-3 text-left">Student</th>
+                      <th className="px-4 py-3 text-left">Student ID</th>
+                      <th className="px-4 py-3 text-right">Contributed</th>
+                      <th className="px-4 py-3 text-right">Expense Share</th>
+                      <th className="px-4 py-3 text-right">Current Balance</th>
+                      <th className="px-4 py-3 text-center">Status</th>
+                      <th className="px-4 py-3 text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700">
-                    {filteredStudents.map(({ member, paid, hasContributed }) => (
+                    {filteredStudents.map(({ member, paid, expenseShare, currentBalance, hasContributed }) => (
                       <tr 
                         key={member.uid} 
                         className={`hover:bg-slate-50/50 cursor-pointer transition ${selectedStudentDetail?.uid === member.uid ? "bg-slate-50" : ""}`}
                         onClick={() => setSelectedStudentDetail(member)}
                       >
-                        <td className="px-5 py-3.5 font-bold text-slate-950 flex items-center gap-2">
-                          <div className="h-6 w-6 rounded-full bg-slate-100 text-[10px] text-slate-700 font-bold flex items-center justify-center border border-slate-200">
+                        <td className="px-4 py-3.5 font-bold text-slate-950 flex items-center gap-2">
+                          <div className="h-6 w-6 rounded-full bg-slate-100 text-[10px] text-slate-700 font-bold flex items-center justify-center border border-slate-200 shrink-0">
                             {member.name.charAt(0)}
                           </div>
-                          <span>{member.name}</span>
+                          <div className="min-w-0">
+                            <span className="block truncate">{member.name}</span>
+                            <span className="text-[10px] text-slate-400 font-mono font-normal block truncate">{member.email}</span>
+                          </div>
                         </td>
-                        <td className="px-5 py-3.5 font-medium text-slate-500 font-mono text-[10px]">{member.studentId || "—"}</td>
-                        <td className="px-5 py-3.5 text-right font-bold text-slate-900">₱{paid.toLocaleString()}</td>
-                        <td className="px-5 py-3.5 text-center">
+                        <td className="px-4 py-3.5 font-medium text-slate-500 font-mono text-[10px]">{member.studentId || "—"}</td>
+                        <td className="px-4 py-3.5 text-right font-bold text-slate-900">₱{paid.toLocaleString()}</td>
+                        <td className="px-4 py-3.5 text-right font-semibold text-red-600">-₱{Math.round(expenseShare).toLocaleString()}</td>
+                        <td className="px-4 py-3.5 text-right">
+                          <span className={`font-black ${currentBalance >= 0 ? "text-emerald-600" : "text-amber-700"}`}>
+                            {currentBalance < 0 ? `-₱${Math.abs(Math.round(currentBalance)).toLocaleString()}` : `₱${Math.round(currentBalance).toLocaleString()}`}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5 text-center">
                           <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
                             hasContributed ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"
                           }`}>
                             {hasContributed ? "Contributor" : "No Payment"}
                           </span>
                         </td>
-                        <td className="px-5 py-3 text-center">
+                        <td className="px-4 py-3 text-center">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -813,7 +1018,7 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
                               setSelectedPaymentForEdit(undefined);
                               setShowPaymentModal(true);
                             }}
-                            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold px-2 py-1 rounded text-[10px] transition"
+                            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold px-2 py-1 rounded text-[10px] transition cursor-pointer"
                           >
                             + Record
                           </button>
@@ -822,7 +1027,7 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
                     ))}
                     {filteredStudents.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="px-5 py-12 text-center text-slate-400 font-medium italic">
+                        <td colSpan={7} className="px-5 py-12 text-center text-slate-400 font-medium italic">
                           No classroom student accounts match these filters.
                         </td>
                       </tr>
@@ -1122,16 +1327,12 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
               const descValue = formData.get("description") as string;
 
               if (nameValue && schoolValue) {
-                if (!confirm(`Are you sure you want to save these changes to the classroom settings for "${classroom.name}"?`)) {
-                  return;
-                }
                 await updateClassroomSettings({
                   name: nameValue,
                   school: schoolValue,
                   schoolYear: syValue,
                   description: descValue
                 });
-                alert("Classroom settings updated successfully!");
               }
             }} className="space-y-4">
               <div>

@@ -3,6 +3,7 @@ import { useApp } from "../context/AppContext";
 import { AppLogo } from "./AppLogo";
 import { OnboardingTour } from "./OnboardingTour";
 import { TermsModal } from "./TermsModal";
+import { CashoutModal } from "./CashoutModal";
 import { 
   DollarSign, 
   Wallet, 
@@ -19,17 +20,20 @@ import {
   Award,
   Menu,
   X,
-  ShieldCheck
+  ShieldCheck,
+  ArrowDownToLine,
+  Info
 } from "lucide-react";
 import html2canvas from "html2canvas-pro";
 import { motion } from "motion/react";
 
 export const StudentDashboard: React.FC = () => {
-  const { user, classroom, payments, expenses, signOutUser } = useApp();
-  const [activeTab, setActiveTab] = useState<"contributions" | "records">("contributions");
+  const { user, classroom, members, payments, expenses, cashoutRequests, signOutUser } = useApp();
+  const [activeTab, setActiveTab] = useState<"contributions" | "records" | "cashouts">("contributions");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [exportingImage, setExportingImage] = useState(false);
   const [exportedImageSrc, setExportedImageSrc] = useState<string | null>(null);
+  const [showCashoutModal, setShowCashoutModal] = useState<boolean>(false);
 
   // Onboarding & Terms state
   const [showTour, setShowTour] = useState<boolean>(() => {
@@ -63,6 +67,24 @@ export const StudentDashboard: React.FC = () => {
   const totalClassCollected = payments.reduce((sum, p) => sum + p.amount, 0);
   const totalClassExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
   const classBalance = totalClassCollected - totalClassExpenses;
+
+  // Student Cashout Calculation: Student Contribution less their equal share of class expenses
+  const enrolledStudentsCount = Math.max(1, members.length || 1);
+  const perStudentExpenseShare = totalClassExpenses / enrolledStudentsCount;
+  const rawEligibleCashout = myTotalPaid - perStudentExpenseShare;
+  const eligibleCashoutAmount = Math.max(0, rawEligibleCashout);
+
+  // Student's Cashout requests history
+  const myCashouts = cashoutRequests.filter(c => c.studentId === user.uid);
+  const totalDisbursedCashouts = myCashouts
+    .filter(c => c.status === "disbursed")
+    .reduce((sum, c) => sum + c.requestedAmount, 0);
+  const pendingCashoutsAmount = myCashouts
+    .filter(c => c.status === "pending" || c.status === "approved")
+    .reduce((sum, c) => sum + c.requestedAmount, 0);
+
+  // Current remaining available cashout
+  const remainingAvailableCashout = Math.max(0, eligibleCashoutAmount - totalDisbursedCashouts - pendingCashoutsAmount);
 
   const handleExportImage = async () => {
     const element = document.getElementById("student-report-capture-area");
@@ -174,6 +196,24 @@ export const StudentDashboard: React.FC = () => {
                 >
                   <TrendingUp className="h-4 w-4" /> Class Fund Statement
                 </button>
+                <button
+                  onClick={() => {
+                    setActiveTab("cashouts");
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center gap-2.5 ${
+                    activeTab === "cashouts"
+                      ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/10"
+                      : "text-slate-400 hover:text-white hover:bg-slate-900"
+                  }`}
+                >
+                  <ArrowDownToLine className="h-4 w-4" /> Cashout Claims
+                  {myCashouts.length > 0 && (
+                    <span className="ml-auto text-[10px] bg-slate-800 text-emerald-400 px-2 py-0.5 rounded-full font-bold">
+                      {myCashouts.length}
+                    </span>
+                  )}
+                </button>
               </nav>
             </div>
 
@@ -256,6 +296,21 @@ export const StudentDashboard: React.FC = () => {
             >
               <TrendingUp className="h-4 w-4" /> Class Fund Statement
             </button>
+            <button
+              onClick={() => setActiveTab("cashouts")}
+              className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center gap-2.5 ${
+                activeTab === "cashouts"
+                  ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/10"
+                  : "text-slate-400 hover:text-white hover:bg-slate-900"
+              }`}
+            >
+              <ArrowDownToLine className="h-4 w-4" /> Cashout Claims
+              {myCashouts.length > 0 && (
+                <span className="ml-auto text-[10px] bg-slate-800 text-emerald-400 px-2 py-0.5 rounded-full font-bold">
+                  {myCashouts.length}
+                </span>
+              )}
+            </button>
           </nav>
         </div>
 
@@ -313,26 +368,85 @@ export const StudentDashboard: React.FC = () => {
             </p>
           </div>
 
-          {activeTab === "contributions" ? (
+          {activeTab === "contributions" && (
           /* Student Contributions Tab */
           <div className="space-y-6">
             
-            {/* Top Contribution Summary card */}
-            <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm text-left space-y-4">
-              <div>
-                <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest block">My Financial Standing</span>
-                <h3 className="font-extrabold text-slate-950 text-base">Personal Contributions Summary</h3>
+            {/* Top Contribution Summary card with Cashout Eligibility */}
+            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-sm text-left space-y-6">
+              
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                <div>
+                  <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest block">My Financial Standing</span>
+                  <h3 className="font-extrabold text-slate-950 text-lg">Personal Contributions &amp; Cashout Balance</h3>
+                </div>
+                <button
+                  onClick={() => setShowCashoutModal(true)}
+                  disabled={remainingAvailableCashout <= 0}
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-extrabold rounded-2xl transition flex items-center justify-center gap-2 shadow-md shadow-emerald-600/10 cursor-pointer self-start sm:self-center"
+                >
+                  <ArrowDownToLine className="h-4 w-4" />
+                  Request Cashout Payout
+                </button>
               </div>
 
-              {/* Huge Contribution Values */}
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl sm:text-4xl font-black text-emerald-600">₱{myTotalPaid.toLocaleString()}</span>
-                <span className="text-slate-400 font-bold text-sm">Total Contributed</span>
+              {/* Major Financial Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* 1. Total Contributed */}
+                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/80 space-y-2">
+                  <div className="flex items-center justify-between text-slate-400">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider">Total Contributed</span>
+                    <Wallet className="h-4 w-4 text-emerald-600" />
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-black text-slate-900">
+                    ₱{myTotalPaid.toLocaleString()}
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-semibold block">
+                    Logged in {myPayments.length} transactions
+                  </span>
+                </div>
+
+                {/* 2. Equal Expense Share Deduction */}
+                <div className="bg-red-50/50 p-5 rounded-2xl border border-red-200/70 space-y-2">
+                  <div className="flex items-center justify-between text-red-500">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider">Shared Expense Deduction</span>
+                    <TrendingUp className="h-4 w-4 text-red-600" />
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-black text-red-600">
+                    -₱{Math.round(perStudentExpenseShare).toLocaleString()}
+                  </div>
+                  <span className="text-[10px] text-red-600/80 font-semibold block">
+                    ₱{totalClassExpenses.toLocaleString()} &divide; {enrolledStudentsCount} students
+                  </span>
+                </div>
+
+                {/* 3. Available Net to Cash Out */}
+                <div className="bg-emerald-50/60 p-5 rounded-2xl border border-emerald-200/80 space-y-2">
+                  <div className="flex items-center justify-between text-emerald-700">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider">Available to Cashout</span>
+                    <ArrowDownToLine className="h-4 w-4 text-emerald-600" />
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-black text-emerald-600">
+                    ₱{Math.round(remainingAvailableCashout).toLocaleString()}
+                  </div>
+                  <span className="text-[10px] text-emerald-700/80 font-semibold block">
+                    Net claimable balance after expenses
+                  </span>
+                </div>
               </div>
 
-              <p className="text-slate-500 text-xs">
-                You have contributed a total of <strong>₱{myTotalPaid.toLocaleString()}</strong> across <strong>{myPayments.length}</strong> separate logged transactions. Every contribution is fully audited and tracked.
-              </p>
+              {/* Transparent Calculation Explainer Note */}
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/70 flex items-start gap-3">
+                <Info className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
+                <div className="text-xs text-slate-600 leading-relaxed space-y-1">
+                  <p className="font-semibold text-slate-800">
+                    How is your available cashout calculated?
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    Your contribution of <strong>₱{myTotalPaid.toLocaleString()}</strong> is reduced by your equal portion of all verified classroom expenses (<strong>₱{totalClassExpenses.toLocaleString()} &divide; {enrolledStudentsCount} enrolled students = ₱{perStudentExpenseShare.toFixed(2)}</strong> per student). The remaining balance of <strong>₱{Math.max(0, rawEligibleCashout).toFixed(2)}</strong> can be cashed out directly back to you.
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* General Stats Boxes */}
@@ -346,7 +460,7 @@ export const StudentDashboard: React.FC = () => {
                 <span className="text-xl font-extrabold text-red-600">₱{totalClassExpenses.toLocaleString()}</span>
               </div>
               <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Available Net Balance</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Class Vault Net Balance</span>
                 <span className="text-xl font-extrabold text-slate-950">₱{classBalance.toLocaleString()}</span>
               </div>
             </div>
@@ -399,7 +513,9 @@ export const StudentDashboard: React.FC = () => {
               </div>
             </div>
           </div>
-        ) : (
+        )}
+
+        {activeTab === "records" && (
           /* General Classroom Funds transparency log */
           <div className="space-y-6">
             
@@ -458,7 +574,7 @@ export const StudentDashboard: React.FC = () => {
                               rel="noreferrer"
                               className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 hover:text-emerald-700 mt-1 cursor-pointer"
                             >
-                              <FileText className="h-3 w-3" /> View Receipt Receipt
+                              <FileText className="h-3 w-3" /> View Receipt
                             </a>
                           )}
                         </td>
@@ -473,6 +589,107 @@ export const StudentDashboard: React.FC = () => {
                       <tr>
                         <td colSpan={5} className="px-5 py-10 text-center text-slate-400 italic font-medium">
                           No classroom expenses have been recorded yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "cashouts" && (
+          /* Cashout Claims History Tab */
+          <div className="space-y-6 text-left">
+            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                <div>
+                  <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest block">Disbursement History</span>
+                  <h3 className="font-extrabold text-slate-950 text-lg">My Cashout Claims</h3>
+                </div>
+                <button
+                  onClick={() => setShowCashoutModal(true)}
+                  disabled={remainingAvailableCashout <= 0}
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-extrabold rounded-2xl transition flex items-center justify-center gap-2 shadow-md shadow-emerald-600/10 cursor-pointer"
+                >
+                  <ArrowDownToLine className="h-4 w-4" />
+                  New Cashout Request
+                </button>
+              </div>
+
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/70">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Remaining Claimable</span>
+                  <span className="text-xl font-black text-emerald-600 block mt-1">₱{Math.round(remainingAvailableCashout).toLocaleString()}</span>
+                </div>
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/70">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Pending Approval</span>
+                  <span className="text-xl font-black text-amber-600 block mt-1">₱{pendingCashoutsAmount.toLocaleString()}</span>
+                </div>
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/70">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Disbursed</span>
+                  <span className="text-xl font-black text-slate-900 block mt-1">₱{totalDisbursedCashouts.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* Cashout Requests Ledger */}
+              <div className="overflow-x-auto w-full rounded-2xl border border-slate-100">
+                <table className="w-full text-xs min-w-[600px]">
+                  <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider">
+                    <tr>
+                      <th className="px-5 py-3 text-left">Date Requested</th>
+                      <th className="px-5 py-3 text-left">Payout Method</th>
+                      <th className="px-5 py-3 text-left">Account Details</th>
+                      <th className="px-5 py-3 text-right">Claim Amount</th>
+                      <th className="px-5 py-3 text-center">Status</th>
+                      <th className="px-5 py-3 text-left">Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {myCashouts.map(c => (
+                      <tr key={c.id} className="hover:bg-slate-50/50">
+                        <td className="px-5 py-3.5 font-semibold text-slate-950">
+                          {new Date(c.requestedAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <span className="px-2 py-0.5 bg-slate-100 font-bold text-slate-700 rounded text-[10px]">
+                            {c.payoutMethod}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 font-mono text-[11px] text-slate-600">
+                          <div>{c.payoutAccountName}</div>
+                          {c.payoutAccountNumber && <div className="text-[10px] text-slate-400">{c.payoutAccountNumber}</div>}
+                        </td>
+                        <td className="px-5 py-3.5 text-right font-extrabold text-emerald-600">
+                          ₱{c.requestedAmount.toLocaleString()}
+                        </td>
+                        <td className="px-5 py-3.5 text-center">
+                          <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                            c.status === "disbursed"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : c.status === "approved"
+                              ? "bg-blue-100 text-blue-800"
+                              : c.status === "rejected"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-amber-100 text-amber-800"
+                          }`}>
+                            {c.status}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 text-[11px] text-slate-500">
+                          {c.notes || c.reason || "—"}
+                          {c.transactionReference && (
+                            <div className="font-mono text-[10px] text-slate-400 mt-0.5">Ref: {c.transactionReference}</div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    {myCashouts.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="px-5 py-10 text-center text-slate-400 italic font-medium">
+                          You haven&apos;t filed any cashout requests yet.
                         </td>
                       </tr>
                     )}
@@ -575,6 +792,15 @@ export const StudentDashboard: React.FC = () => {
       <TermsModal
         isOpen={showTerms}
         onClose={() => setShowTerms(false)}
+      />
+
+      {/* Student Cashout Request Modal */}
+      <CashoutModal
+        isOpen={showCashoutModal}
+        onClose={() => setShowCashoutModal(false)}
+        availableCashout={remainingAvailableCashout}
+        totalPaid={myTotalPaid}
+        perStudentExpenseShare={perStudentExpenseShare}
       />
     </div>
   );

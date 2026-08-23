@@ -22,29 +22,49 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ onClose }) => {
   const [receiptURL, setReceiptURL] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!description.trim() || amount <= 0 || !paidTo.trim()) return;
-    
-    if (!confirm(`Are you sure you want to record an expense of ₱${amount.toLocaleString()} for "${description.trim()}"? This action will reduce the available classroom fund.`)) {
+    setFormError(null);
+    setSuccessMessage(null);
+
+    if (!description.trim()) {
+      setFormError("Please enter a description or item name for this expense.");
+      return;
+    }
+    if (isNaN(amount) || amount <= 0) {
+      setFormError("Please specify a valid expense amount greater than ₱0.");
+      return;
+    }
+    if (!paidTo.trim()) {
+      setFormError("Please specify who or which store/supplier this was paid to.");
       return;
     }
 
     setSubmitting(true);
     try {
-      await recordExpense({
+      const ok = await recordExpense({
         description: description.trim(),
         amount,
         category,
         paidTo: paidTo.trim(),
-        receiptURL,
+        receiptURL: receiptURL.trim(),
         notes: notes.trim()
       });
-      alert("Expense recorded successfully!");
-      onClose();
-    } catch (err) {
-      console.error(err);
+
+      if (ok) {
+        setSuccessMessage(`Classroom expense of ₱${amount.toLocaleString()} logged successfully!`);
+        setTimeout(() => {
+          onClose();
+        }, 600);
+      } else {
+        setFormError("Could not save expense record. Please check your network and try again.");
+      }
+    } catch (err: any) {
+      console.error("Expense submission error:", err);
+      setFormError(err.message || "An unexpected error occurred while logging the expense.");
     } finally {
       setSubmitting(false);
     }
@@ -77,6 +97,19 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ onClose }) => {
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {formError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold flex items-center gap-2">
+              <span className="shrink-0 text-base">⚠️</span>
+              <p className="leading-tight">{formError}</p>
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-bold flex items-center gap-2">
+              <span className="shrink-0 text-base">✅</span>
+              <p className="leading-tight">{successMessage}</p>
+            </div>
+          )}
           
           {/* Description */}
           <div>

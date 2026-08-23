@@ -24,6 +24,10 @@ export const ReportView: React.FC = () => {
   // Balance
   const fundBalance = totalCollected - totalExpenses;
 
+  // Equal Expense Share per student
+  const enrolledCount = Math.max(1, totalStudents);
+  const perStudentExpenseShare = totalExpenses / enrolledCount;
+
   // Student specific contribution tracking (includes Treasurer)
   const studentContributionMap = members
     .filter(m => m.role === "student" || m.role === "treasurer")
@@ -31,12 +35,15 @@ export const ReportView: React.FC = () => {
       const studentPayments = payments.filter(p => p.studentId === student.uid);
       const paid = studentPayments.reduce((sum, p) => sum + p.amount, 0);
       const hasContributed = paid > 0;
+      const currentBalance = paid - perStudentExpenseShare;
 
       return {
         name: student.name,
         email: student.email,
         studentId: student.studentId || "N/A",
         paid,
+        expenseShare: perStudentExpenseShare,
+        currentBalance,
         hasContributed
       };
     });
@@ -66,6 +73,7 @@ export const ReportView: React.FC = () => {
     csv += `Total Students enrolled,${totalStudents}\n`;
     csv += `Total Actual Collected,₱${totalCollected.toFixed(2)}\n`;
     csv += `Total Outgoing Expenses,₱${totalExpenses.toFixed(2)}\n`;
+    csv += `Equal Expense Share per Student,₱${perStudentExpenseShare.toFixed(2)}\n`;
     csv += `Net Remaining Fund Balance,₱${fundBalance.toFixed(2)}\n\n`;
     csv += `Student Contribution Status Counts,Count\n`;
     csv += `Contributors,${contributorCount}\n`;
@@ -75,15 +83,15 @@ export const ReportView: React.FC = () => {
   };
 
   const handleExportStudents = () => {
-    let csv = "STUDENT CONTRIBUTIONS REPORT\n";
+    let csv = "STUDENT CONTRIBUTIONS & EQUITABLE BALANCES REPORT\n";
     csv += `Classroom,${classroom.name}\n`;
     csv += `School Year,${classroom.schoolYear}\n\n`;
-    csv += "Student Name,Student ID,Email,Amount Paid,Status\n";
+    csv += "Student Name,Student ID,Email,Total Contributed,Equal Expense Share,Current Net Balance,Status\n";
     studentContributionMap.forEach(s => {
-      csv += `"${s.name}","${s.studentId}","${s.email}",${s.paid},"${s.hasContributed ? "Contributor" : "No Payment"}"\n`;
+      csv += `"${s.name}","${s.studentId}","${s.email}",${s.paid},${s.expenseShare.toFixed(2)},${s.currentBalance.toFixed(2)},"${s.hasContributed ? "Contributor" : "No Payment"}"\n`;
     });
 
-    downloadCSV(csv, `${classroom.name.replace(/\s+/g, "_")}_Student_Contributions.csv`);
+    downloadCSV(csv, `${classroom.name.replace(/\s+/g, "_")}_Student_Contributions_and_Balances.csv`);
   };
 
   const handleExportExpenses = () => {
@@ -270,24 +278,33 @@ export const ReportView: React.FC = () => {
         {/* Student Contributions Table */}
         {reportType === "students" && (
           <div className="bg-white rounded-2xl border border-slate-100 overflow-x-auto w-full text-left">
-            <table className="w-full text-sm min-w-[500px]">
+            <table className="w-full text-sm min-w-[650px]">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-xs uppercase tracking-wider">
                 <tr>
-                  <th className="px-6 py-4 text-left">Student</th>
-                  <th className="px-6 py-4 text-left">Student ID</th>
-                  <th className="px-6 py-4 text-left">Email Address</th>
-                  <th className="px-6 py-4 text-right">Paid</th>
-                  <th className="px-6 py-4 text-center">Status</th>
+                  <th className="px-5 py-4 text-left">Student</th>
+                  <th className="px-5 py-4 text-left">Student ID</th>
+                  <th className="px-5 py-4 text-right">Total Contributed</th>
+                  <th className="px-5 py-4 text-right">Expense Share</th>
+                  <th className="px-5 py-4 text-right">Current Balance</th>
+                  <th className="px-5 py-4 text-center">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {studentContributionMap.map((s, idx) => (
                   <tr key={idx} className="hover:bg-slate-50/50">
-                    <td className="px-6 py-3.5 font-bold text-slate-950">{s.name}</td>
-                    <td className="px-6 py-3.5 font-medium text-slate-500 font-mono text-xs">{s.studentId}</td>
-                    <td className="px-6 py-3.5 text-slate-500 text-xs">{s.email}</td>
-                    <td className="px-6 py-3.5 text-right font-bold text-slate-900">₱{s.paid.toLocaleString()}</td>
-                    <td className="px-6 py-3.5 text-center">
+                    <td className="px-5 py-3.5 font-bold text-slate-950">
+                      <div>{s.name}</div>
+                      <div className="text-xs text-slate-400 font-normal font-mono">{s.email}</div>
+                    </td>
+                    <td className="px-5 py-3.5 font-medium text-slate-500 font-mono text-xs">{s.studentId}</td>
+                    <td className="px-5 py-3.5 text-right font-bold text-slate-900">₱{s.paid.toLocaleString()}</td>
+                    <td className="px-5 py-3.5 text-right font-semibold text-red-600">-₱{Math.round(s.expenseShare).toLocaleString()}</td>
+                    <td className="px-5 py-3.5 text-right">
+                      <span className={`font-black ${s.currentBalance >= 0 ? "text-emerald-600" : "text-amber-700"}`}>
+                        {s.currentBalance < 0 ? `-₱${Math.abs(Math.round(s.currentBalance)).toLocaleString()}` : `₱${Math.round(s.currentBalance).toLocaleString()}`}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 text-center">
                       <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                         s.hasContributed ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"
                       }`}>
@@ -298,7 +315,7 @@ export const ReportView: React.FC = () => {
                 ))}
                 {studentContributionMap.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-slate-400 font-medium italic">
+                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium italic">
                       No student contribution accounts configured yet.
                     </td>
                   </tr>

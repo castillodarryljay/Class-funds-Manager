@@ -2,9 +2,10 @@ import React, { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import { db } from "../firebase";
 import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
-import { Sparkles, User, GraduationCap, CheckCircle } from "lucide-react";
+import { Sparkles, User, GraduationCap, CheckCircle, ShieldCheck, Mail, AlertCircle, ArrowRight } from "lucide-react";
 import { AppLogo } from "./AppLogo";
 import { Classroom } from "../types";
+import { StudentPendingApproval } from "./StudentPendingApproval";
 
 interface JoinClassroomProps {
   inviteCode: string;
@@ -12,7 +13,7 @@ interface JoinClassroomProps {
 }
 
 export const JoinClassroom: React.FC<JoinClassroomProps> = ({ inviteCode, onJoined }) => {
-  const { user, joinClassroomByCode, error, setError, signInGoogle } = useApp();
+  const { user, requestJoinClassroom, pendingJoinRequest, error, setError, signInGoogle } = useApp();
   const [classroomInfo, setClassroomInfo] = useState<Classroom | null>(null);
   const [treasurerName, setTreasurerName] = useState("The Classroom Treasurer");
   const [loadingClass, setLoadingClass] = useState(true);
@@ -22,7 +23,9 @@ export const JoinClassroom: React.FC<JoinClassroomProps> = ({ inviteCode, onJoin
   const [program, setProgram] = useState(user?.program || "");
   const [yearLevel, setYearLevel] = useState(user?.yearLevel || "2nd Year");
   const [section, setSection] = useState(user?.section || "");
-  const [joining, setJoining] = useState(false);
+  const [contact, setContact] = useState(user?.contact || "");
+  const [submitting, setSubmitting] = useState(false);
+  const [submittedSuccess, setSubmittedSuccess] = useState(false);
 
   // Look up classroom metadata from invite code
   useEffect(() => {
@@ -127,29 +130,35 @@ export const JoinClassroom: React.FC<JoinClassroomProps> = ({ inviteCode, onJoin
     };
   }, [inviteCode]);
 
-  const handleJoin = async (e: React.FormEvent) => {
+  const handleSubmitRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!studentId.trim() || !program.trim() || !section.trim()) {
-      setError("Please fill out all student registration fields.");
+      setError("Please fill out all required student registration fields.");
       return;
     }
-    setJoining(true);
+    setSubmitting(true);
     try {
       const studentProfile = {
+        name: user?.name,
         studentId: studentId.trim(),
         program: program.trim(),
         yearLevel,
-        section: section.trim()
+        section: section.trim(),
+        contact: contact.trim()
       };
-      const success = await joinClassroomByCode(inviteCode, studentProfile);
-      if (success) {
-        onJoined();
+      const result = await requestJoinClassroom(inviteCode, studentProfile);
+      if (result.success) {
+        if (result.status === "approved") {
+          onJoined();
+        } else {
+          setSubmittedSuccess(true);
+        }
       }
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "Failed to join classroom.");
+      setError(err.message || "Failed to submit registration request.");
     } finally {
-      setJoining(false);
+      setSubmitting(false);
     }
   };
 
@@ -162,6 +171,10 @@ export const JoinClassroom: React.FC<JoinClassroomProps> = ({ inviteCode, onJoin
         </div>
       </div>
     );
+  }
+
+  if (pendingJoinRequest || submittedSuccess) {
+    return <StudentPendingApproval />;
   }
 
   if (!classroomInfo) {
@@ -180,7 +193,7 @@ export const JoinClassroom: React.FC<JoinClassroomProps> = ({ inviteCode, onJoin
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center py-12 px-6" id="join-classroom-view">
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center py-12 px-4 sm:px-6" id="join-classroom-view">
       <div className="max-w-md w-full bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 overflow-hidden">
         
         {/* Invitation Banner */}
@@ -192,28 +205,41 @@ export const JoinClassroom: React.FC<JoinClassroomProps> = ({ inviteCode, onJoin
             <AppLogo size="lg" />
           </div>
           <div className="space-y-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">You&apos;ve been invited!</span>
-            <h2 className="text-2xl font-extrabold tracking-tight text-white">{classroomInfo.name}</h2>
-            <p className="text-slate-300 text-xs">{classroomInfo.school} &bull; SY {classroomInfo.schoolYear}</p>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Classroom Invitation</span>
+            <h2 className="text-2xl font-black tracking-tight text-white">{classroomInfo.name}</h2>
+            <p className="text-slate-300 text-xs font-medium">{classroomInfo.school} &bull; SY {classroomInfo.schoolYear}</p>
           </div>
-          <p className="text-xs text-slate-400 italic pt-2">Invited by: <span className="text-emerald-400 font-semibold">{treasurerName}</span></p>
+          <p className="text-xs text-slate-400 italic pt-2">Managed by: <span className="text-emerald-400 font-semibold">{treasurerName}</span></p>
         </div>
 
         {/* Action Form / Sign In */}
-        <div className="p-8 space-y-6">
+        <div className="p-6 sm:p-8 space-y-6">
           {error && (
-            <div className="bg-red-50 border border-red-100 text-red-700 text-xs p-3 rounded-xl font-medium">
-              {error}
+            <div className="bg-red-50 border border-red-100 text-red-700 text-xs p-3.5 rounded-2xl font-medium flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
+              <span>{error}</span>
             </div>
           )}
 
           {!user ? (
             /* Step 1: Sign-In */
             <div className="space-y-4 text-center">
-              <p className="text-slate-500 text-sm leading-normal">To join this classroom workspace, please authenticate your profile securely.</p>
+              <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl text-left space-y-1">
+                <span className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
+                  <ShieldCheck className="h-4 w-4 text-blue-600" /> Google Verified Registration
+                </span>
+                <p className="text-[11px] text-blue-700 leading-relaxed font-medium">
+                  Your registered Google email will be automatically verified and presented to the Treasurer for enrollment review.
+                </p>
+              </div>
+
+              <p className="text-slate-500 text-sm leading-normal">
+                To request registration in this classroom, please authenticate your account.
+              </p>
+
               <button
-                onClick={signInGoogle}
-                className="w-full bg-slate-950 hover:bg-slate-900 text-white font-semibold py-3 px-6 rounded-xl transition flex items-center justify-center gap-3 shadow-md"
+                onClick={() => signInGoogle("student")}
+                className="w-full bg-slate-950 hover:bg-slate-900 text-white font-semibold py-3.5 px-6 rounded-xl transition flex items-center justify-center gap-3 shadow-md"
               >
                 <svg className="h-5 w-5 fill-current" viewBox="0 0 24 24">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -225,15 +251,29 @@ export const JoinClassroom: React.FC<JoinClassroomProps> = ({ inviteCode, onJoin
               </button>
             </div>
           ) : (
-            /* Step 2: Fill Student Profile to Join */
-            <form onSubmit={handleJoin} className="space-y-4">
-              <div className="bg-emerald-50 text-emerald-800 text-xs p-3 rounded-xl flex items-center gap-2 border border-emerald-100">
-                <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0" />
-                <span>Authenticated as <span className="font-bold">{user.name}</span>. Complete your student profile below to join.</span>
+            /* Step 2: Fill Student Profile for Treasurer Approval */
+            <form onSubmit={handleSubmitRequest} className="space-y-4">
+              
+              {/* Account Email Details (Treasurer Visibility Notice) */}
+              <div className="bg-slate-50 border border-slate-200/80 p-3.5 rounded-2xl space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                    <Mail className="h-3.5 w-3.5 text-slate-400" /> Registered Email
+                  </span>
+                  <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    Google Verified
+                  </span>
+                </div>
+                <div className="text-sm font-black text-slate-900 break-all">
+                  {user.email || "No email detected"}
+                </div>
+                <p className="text-[10px] text-slate-500">
+                  This official email will be displayed to Treasurer <strong className="text-slate-800">{treasurerName}</strong> for approval.
+                </p>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Student ID Number</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Student ID Number *</label>
                 <input
                   type="text"
                   required
@@ -244,52 +284,69 @@ export const JoinClassroom: React.FC<JoinClassroomProps> = ({ inviteCode, onJoin
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Program / Course</label>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Course / Program *</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. BSIT"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-600 focus:bg-white text-slate-950 font-semibold"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-emerald-600 focus:bg-white text-slate-950 font-semibold"
                     value={program}
                     onChange={(e) => setProgram(e.target.value)}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Section</label>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Section *</label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. A"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-600 focus:bg-white text-slate-950 font-semibold"
+                    placeholder="e.g. 2A"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-emerald-600 focus:bg-white text-slate-950 font-semibold"
                     value={section}
                     onChange={(e) => setSection(e.target.value)}
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Year Level</label>
-                <select
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-600 focus:bg-white text-slate-950 font-semibold"
-                  value={yearLevel}
-                  onChange={(e) => setYearLevel(e.target.value)}
-                >
-                  <option value="1st Year">1st Year</option>
-                  <option value="2nd Year">2nd Year</option>
-                  <option value="3rd Year">3rd Year</option>
-                  <option value="4th Year">4th Year</option>
-                  <option value="5th Year">5th Year</option>
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Year Level</label>
+                  <select
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-600 focus:bg-white text-slate-950 font-semibold"
+                    value={yearLevel}
+                    onChange={(e) => setYearLevel(e.target.value)}
+                  >
+                    <option value="1st Year">1st Year</option>
+                    <option value="2nd Year">2nd Year</option>
+                    <option value="3rd Year">3rd Year</option>
+                    <option value="4th Year">4th Year</option>
+                    <option value="5th Year">5th Year</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Contact No. (Opt)</label>
+                  <input
+                    type="tel"
+                    placeholder="e.g. 09123456789"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-emerald-600 focus:bg-white text-slate-950 font-semibold"
+                    value={contact}
+                    onChange={(e) => setContact(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="bg-amber-50/70 border border-amber-200/60 p-3 rounded-xl text-[11px] text-amber-900 leading-relaxed font-medium">
+                🛡️ <strong>Approval Requirement:</strong> Submitting will send a join request to the Treasurer. You will be granted access immediately upon their approval.
               </div>
 
               <button
                 type="submit"
-                disabled={joining}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl transition shadow-md"
+                disabled={submitting}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 px-4 rounded-xl transition shadow-md shadow-emerald-600/10 flex items-center justify-center gap-2"
               >
-                {joining ? "Joining Classroom..." : "Create Profile & Join"}
+                {submitting ? "Submitting Request..." : "Submit Join Request"}
+                {!submitting && <ArrowRight className="h-4 w-4" />}
               </button>
             </form>
           )}
@@ -305,3 +362,4 @@ export const JoinClassroom: React.FC<JoinClassroomProps> = ({ inviteCode, onJoin
     </div>
   );
 };
+
