@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import { AppLogo } from "./AppLogo";
 import { OnboardingTour } from "./OnboardingTour";
 import { TermsModal } from "./TermsModal";
 import { CashoutModal } from "./CashoutModal";
 import { ExpenseDetailModal } from "./ExpenseDetailModal";
+import { JoinAnotherClassModal } from "./JoinAnotherClassModal";
 import { WebsiteCredits } from "./WebsiteCredits";
 import { Expense } from "../types";
 import { 
@@ -17,28 +18,30 @@ import {
   Lock, 
   HelpCircle, 
   ChevronRight, 
-  FileText,
-  Bookmark,
-  Sparkles,
-  Award,
-  Menu,
-  X,
-  ShieldCheck,
-  ArrowDownToLine,
-  Info,
-  Eye,
-  Receipt
+  FileText, 
+  Bookmark, 
+  Sparkles, 
+  Award, 
+  Menu, 
+  X, 
+  ShieldCheck, 
+  ArrowDownToLine, 
+  Info, 
+  Eye, 
+  Receipt,
+  Plus
 } from "lucide-react";
 import html2canvas from "html2canvas-pro";
 import { motion } from "motion/react";
 
 export const StudentDashboard: React.FC = () => {
-  const { user, classroom, members, payments, expenses, cashoutRequests, signOutUser } = useApp();
+  const { user, classroom, classrooms, selectClassroom, members, payments, expenses, cashoutRequests, signOutUser } = useApp();
   const [activeTab, setActiveTab] = useState<"contributions" | "records" | "cashouts">("contributions");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [exportingImage, setExportingImage] = useState(false);
   const [exportedImageSrc, setExportedImageSrc] = useState<string | null>(null);
   const [showCashoutModal, setShowCashoutModal] = useState<boolean>(false);
+  const [showJoinAnotherClassModal, setShowJoinAnotherClassModal] = useState<boolean>(false);
   const [selectedExpenseForDetail, setSelectedExpenseForDetail] = useState<Expense | null>(null);
 
   // Onboarding & Terms state
@@ -46,6 +49,12 @@ export const StudentDashboard: React.FC = () => {
     return !localStorage.getItem(`tour_completed_student_${user?.uid}`);
   });
   const [showTerms, setShowTerms] = useState<boolean>(false);
+
+  // Track viewed cashout claims count so badge clears when activeTab === "cashouts"
+  const [viewedCashoutsCount, setViewedCashoutsCount] = useState<number>(() => {
+    const saved = localStorage.getItem(`viewed_student_cashouts_${classroom?.id}_${user?.uid}`);
+    return saved !== null ? parseInt(saved, 10) : 0;
+  });
 
   if (!user || !classroom) {
     return (
@@ -91,6 +100,24 @@ export const StudentDashboard: React.FC = () => {
 
   // Current remaining available cashout
   const remainingAvailableCashout = Math.max(0, eligibleCashoutAmount - totalDisbursedCashouts - pendingCashoutsAmount);
+
+  // Sync viewed cashout claims whenever student views the cashouts tab
+  useEffect(() => {
+    if (activeTab === "cashouts" && classroom && user) {
+      setViewedCashoutsCount(myCashouts.length);
+      localStorage.setItem(`viewed_student_cashouts_${classroom.id}_${user.uid}`, myCashouts.length.toString());
+    }
+  }, [activeTab, myCashouts.length, classroom?.id, user?.uid]);
+
+  // Sync on classroom change
+  useEffect(() => {
+    if (classroom && user) {
+      const saved = localStorage.getItem(`viewed_student_cashouts_${classroom.id}_${user.uid}`);
+      setViewedCashoutsCount(saved !== null ? parseInt(saved, 10) : myCashouts.length);
+    }
+  }, [classroom?.id]);
+
+  const unreadStudentCashouts = activeTab === "cashouts" ? 0 : Math.max(0, myCashouts.length - viewedCashoutsCount);
 
   const handleExportImage = async () => {
     const element = document.getElementById("student-report-capture-area");
@@ -174,6 +201,38 @@ export const StudentDashboard: React.FC = () => {
                 </div>
               </div>
 
+              {/* Classroom Workspace Selector (Mobile) */}
+              <div className="space-y-1.5 bg-slate-900/90 p-3 rounded-2xl border border-slate-800/80 text-left">
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block">
+                  Classroom Workspace
+                </label>
+                <select
+                  value={classroom.id}
+                  onChange={(e) => {
+                    selectClassroom(e.target.value);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="w-full bg-slate-950 border border-slate-800 text-slate-100 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-emerald-500 cursor-pointer"
+                >
+                  {classrooms.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.section || c.code})
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowJoinAnotherClassModal(true);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="w-full mt-1 py-1.5 px-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 hover:border-emerald-500/50 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Join Another Class</span>
+                </button>
+              </div>
+
               {/* Navigation Menus */}
               <nav className="space-y-1.5 text-left">
                 <button
@@ -214,9 +273,9 @@ export const StudentDashboard: React.FC = () => {
                   }`}
                 >
                   <ArrowDownToLine className="h-4 w-4" /> Cashout Claims
-                  {myCashouts.length > 0 && (
+                  {unreadStudentCashouts > 0 && (
                     <span className="ml-auto text-[10px] bg-slate-800 text-emerald-400 px-2 py-0.5 rounded-full font-bold">
-                      {myCashouts.length}
+                      {unreadStudentCashouts}
                     </span>
                   )}
                 </button>
@@ -280,6 +339,32 @@ export const StudentDashboard: React.FC = () => {
             </div>
           </div>
 
+          {/* Classroom Workspace Selector (Desktop) */}
+          <div className="space-y-1.5 bg-slate-900/90 p-3 rounded-2xl border border-slate-800/80 text-left">
+            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block">
+              Classroom Workspace
+            </label>
+            <select
+              value={classroom.id}
+              onChange={(e) => selectClassroom(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 text-slate-100 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-emerald-500 cursor-pointer"
+            >
+              {classrooms.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.section || c.code})
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => setShowJoinAnotherClassModal(true)}
+              className="w-full mt-1 py-1.5 px-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 hover:border-emerald-500/50 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Join Another Class</span>
+            </button>
+          </div>
+
           {/* Navigation Menus */}
           <nav className="space-y-1.5 text-left">
             <button
@@ -311,9 +396,9 @@ export const StudentDashboard: React.FC = () => {
               }`}
             >
               <ArrowDownToLine className="h-4 w-4" /> Cashout Claims
-              {myCashouts.length > 0 && (
+              {unreadStudentCashouts > 0 && (
                 <span className="ml-auto text-[10px] bg-slate-800 text-emerald-400 px-2 py-0.5 rounded-full font-bold">
-                  {myCashouts.length}
+                  {unreadStudentCashouts}
                 </span>
               )}
             </button>
@@ -833,6 +918,12 @@ export const StudentDashboard: React.FC = () => {
           onClose={() => setSelectedExpenseForDetail(null)}
         />
       )}
+
+      {/* Join Another Classroom Modal */}
+      <JoinAnotherClassModal
+        isOpen={showJoinAnotherClassModal}
+        onClose={() => setShowJoinAnotherClassModal(false)}
+      />
     </div>
   );
 };

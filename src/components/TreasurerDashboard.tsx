@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import { AppLogo } from "./AppLogo";
 import { OnboardingTour } from "./OnboardingTour";
@@ -103,14 +103,63 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
   });
   const [showTerms, setShowTerms] = useState<boolean>(false);
 
+  // Track viewed counts so notification badges in side panel reset when tabs are viewed
+  const [viewedExpensesCount, setViewedExpensesCount] = useState<number>(() => {
+    const saved = localStorage.getItem(`viewed_expenses_${classroom?.id}_${user?.uid}`);
+    return saved !== null ? parseInt(saved, 10) : 0;
+  });
+  const [viewedRequestsCount, setViewedRequestsCount] = useState<number>(() => {
+    const saved = localStorage.getItem(`viewed_requests_${classroom?.id}_${user?.uid}`);
+    return saved !== null ? parseInt(saved, 10) : 0;
+  });
+  const [viewedCashoutsCount, setViewedCashoutsCount] = useState<number>(() => {
+    const saved = localStorage.getItem(`viewed_cashouts_${classroom?.id}_${user?.uid}`);
+    return saved !== null ? parseInt(saved, 10) : 0;
+  });
+
+  const pendingRequestsCountRaw = joinRequests.filter(r => r.status === "pending").length;
+  const pendingCashoutsCountRaw = cashoutRequests.filter(r => r.status === "pending").length;
+
+  // Whenever user opens or stays on tabs, clear their badges and save count
+  useEffect(() => {
+    if (!classroom || !user) return;
+    if (activeTab === "expenses") {
+      setViewedExpensesCount(expenses.length);
+      localStorage.setItem(`viewed_expenses_${classroom.id}_${user.uid}`, expenses.length.toString());
+    } else if (activeTab === "requests") {
+      setViewedRequestsCount(pendingRequestsCountRaw);
+      localStorage.setItem(`viewed_requests_${classroom.id}_${user.uid}`, pendingRequestsCountRaw.toString());
+    } else if (activeTab === "cashouts") {
+      setViewedCashoutsCount(pendingCashoutsCountRaw);
+      localStorage.setItem(`viewed_cashouts_${classroom.id}_${user.uid}`, pendingCashoutsCountRaw.toString());
+    }
+  }, [activeTab, expenses.length, pendingRequestsCountRaw, pendingCashoutsCountRaw, classroom?.id, user?.uid]);
+
+  // When classroom changes, sync the viewed counts
+  useEffect(() => {
+    if (classroom && user) {
+      const savedExp = localStorage.getItem(`viewed_expenses_${classroom.id}_${user.uid}`);
+      setViewedExpensesCount(savedExp !== null ? parseInt(savedExp, 10) : expenses.length);
+
+      const savedReq = localStorage.getItem(`viewed_requests_${classroom.id}_${user.uid}`);
+      setViewedRequestsCount(savedReq !== null ? parseInt(savedReq, 10) : pendingRequestsCountRaw);
+
+      const savedCash = localStorage.getItem(`viewed_cashouts_${classroom.id}_${user.uid}`);
+      setViewedCashoutsCount(savedCash !== null ? parseInt(savedCash, 10) : pendingCashoutsCountRaw);
+    }
+  }, [classroom?.id]);
+
   if (!user || classrooms.length === 0 || !classroom) {
     return null; // Safety, App.tsx handles loading or empty workspace redirect
   }
 
-  // Pending Join Requests Count
-  const pendingRequestsCount = joinRequests.filter(r => r.status === "pending").length;
-  // Pending Cashout Claims Count
-  const pendingCashoutsCount = cashoutRequests.filter(r => r.status === "pending").length;
+  // Unread / New Counts (zero if currently viewing the corresponding tab)
+  const unreadExpensesCount = activeTab === "expenses" ? 0 : Math.max(0, expenses.length - viewedExpensesCount);
+  const unreadRequestsCount = activeTab === "requests" ? 0 : Math.max(0, pendingRequestsCountRaw - viewedRequestsCount);
+  const unreadCashoutsCount = activeTab === "cashouts" ? 0 : Math.max(0, pendingCashoutsCountRaw - viewedCashoutsCount);
+
+  const pendingRequestsCount = pendingRequestsCountRaw;
+  const pendingCashoutsCount = pendingCashoutsCountRaw;
 
   // Calculated Statistics
   const studentsCount = members.filter(m => m.role === "student" || m.role === "treasurer").length;
@@ -138,11 +187,11 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
 
   const navigationTabs = [
     { id: "overview", label: "Overview", icon: Landmark },
-    { id: "requests", label: "Join Requests", icon: UserCheck, badge: pendingRequestsCount },
-    { id: "cashouts", label: "Cashout Claims", icon: ArrowDownToLine, badge: pendingCashoutsCount },
+    { id: "requests", label: "Join Requests", icon: UserCheck, badge: unreadRequestsCount },
+    { id: "cashouts", label: "Cashout Claims", icon: ArrowDownToLine, badge: unreadCashoutsCount },
     { id: "students", label: "Students", icon: Users },
     { id: "payments", label: "Payments", icon: Wallet },
-    { id: "expenses", label: "Expenses", icon: Receipt, badge: expenses.length },
+    { id: "expenses", label: "Expenses", icon: Receipt, badge: unreadExpensesCount },
     { id: "funds", label: "Fund Records", icon: TrendingUp },
     { id: "reports", label: "Reports", icon: FileText },
     { id: "invite", label: "Invite Students", icon: ExternalLink },
