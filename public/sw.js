@@ -1,11 +1,13 @@
 // ClassFund Manager Service Worker
-const CACHE_NAME = 'classfund-v7';
+const CACHE_NAME = 'classfund-v8';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
   '/LogoIcon.png',
-  '/LogoIcon.svg'
+  '/LogoIcon.svg',
+  '/icon-192.png',
+  '/icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {
