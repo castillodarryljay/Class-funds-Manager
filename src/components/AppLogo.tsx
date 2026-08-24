@@ -1,5 +1,5 @@
 import React from "react";
-import logoIcon from "../assets/LogoIcon.png";
+import { LogoVector } from "./LogoVector";
 
 interface AppLogoProps {
   className?: string;
@@ -17,12 +17,12 @@ export const AppLogo: React.FC<AppLogoProps> = ({
   dark = false
 }) => {
   const sizeConfig = {
-    xs: { css: "h-6 w-6", px: 24 },
-    sm: { css: "h-8 w-8", px: 32 },
-    md: { css: "h-11 w-11", px: 44 },
-    lg: { css: "h-16 w-16", px: 64 },
-    xl: { css: "h-20 w-20", px: 80 },
-    hero: { css: "h-24 w-24", px: 96 }
+    xs: { css: "h-6 w-6" },
+    sm: { css: "h-8 w-8" },
+    md: { css: "h-11 w-11" },
+    lg: { css: "h-16 w-16" },
+    xl: { css: "h-20 w-20" },
+    hero: { css: "h-24 w-24" }
   };
 
   const config = sizeConfig[size] || sizeConfig.md;
@@ -30,15 +30,7 @@ export const AppLogo: React.FC<AppLogoProps> = ({
   return (
     <div className={`inline-flex items-center gap-3 select-none ${className}`}>
       <div className={`relative shrink-0 flex items-center justify-center ${config.css}`}>
-        <img
-          src={logoIcon}
-          alt="Class Funds Logo"
-          width={config.px}
-          height={config.px}
-          loading="eager"
-          decoding="sync"
-          className="w-full h-full rounded-2xl object-contain drop-shadow-sm pointer-events-none"
-        />
+        <LogoVector className="w-full h-full drop-shadow-sm" />
       </div>
 
       {showText && (

@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#064e3b"/>
+      <stop offset="50%" stop-color="#047857"/>
+      <stop offset="100%" stop-color="#0f766e"/>
+    </linearGradient>
+
+    <!-- Coin / Gold Gradient -->
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="40%" stop-color="#facc15"/>
+      <stop offset="100%" stop-color="#ca8a04"/>
+    </linearGradient>
+
+    <!-- Mint / Growth Gradient -->
+    <linearGradient id="mintGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#6ee7b7"/>
+    </linearGradient>
+
+    <!-- Glow Filter -->
+    <filter id="subtleGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+
+    <!-- Drop Shadow for Central Shield -->
+    <filter id="badgeShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#022c22" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- Base Squircle with Shadow -->
+  <rect x="24" y="24" width="464" height="464" rx="112" fill="url(#bgGrad)"/>
+
+  <!-- Outer Glass Border -->
+  <rect x="24" y="24" width="464" height="464" rx="112" fill="none" stroke="#6ee7b7" stroke-width="6" stroke-opacity="0.35"/>
+  <rect x="30" y="30" width="452" height="452" rx="106" fill="none" stroke="#ffffff" stroke-width="2" stroke-opacity="0.2"/>
+
+  <!-- Ambient Light Reflection -->
+  <path d="M 40 140 C 40 80, 80 40, 140 40 L 372 40 C 220 70, 100 170, 60 320 Z" fill="#ffffff" fill-opacity="0.08"/>
+
+  <!-- Central Shield / Badge -->
+  <g filter="url(#badgeShadow)">
+    <!-- Ledger Shield Outline -->
+    <path d="M 256 100 L 380 155 C 380 270, 330 355, 256 395 C 182 355, 132 270, 132 155 Z" 
+          fill="#022c22" fill-opacity="0.6" stroke="#a7f3d0" stroke-width="5" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Graduation Cap (Education Theme) at Top of Shield -->
+  <g id="gradCap">
+    <!-- Cap Diamond -->
+    <polygon points="256,125 350,165 256,205 162,165" fill="#f0fdf4" filter="url(#subtleGlow)"/>
+    <polygon points="256,132 335,165 256,198 177,165" fill="#10b981"/>
+    <!-- Cap Skullcap -->
+    <path d="M 195 180 L 195 215 C 195 240, 317 240, 317 215 L 317 180 Z" fill="#047857"/>
+    <!-- Cap Tassel -->
+    <path d="M 315 178 Q 345 195 348 230" fill="none" stroke="#facc15" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="348" cy="235" r="5" fill="#facc15"/>
+  </g>
+
+  <!-- Upward Financial Growth Trend Bars & Arrow -->
+  <g id="financialGrowth" transform="translate(0, 20)">
+    <!-- Bar 1 -->
+    <rect x="180" y="285" width="28" height="55" rx="6" fill="#34d399" fill-opacity="0.5"/>
+    <!-- Bar 2 -->
+    <rect x="222" y="255" width="28" height="85" rx="6" fill="#34d399" fill-opacity="0.75"/>
+    <!-- Bar 3 -->
+    <rect x="264" y="225" width="28" height="115" rx="6" fill="#10b981"/>
+    <!-- Bar 4 / Peak -->
+    <rect x="306" y="195" width="28" height="145" rx="6" fill="url(#mintGrad)"/>
+
+    <!-- Dynamic Rising Arrow Line -->
+    <path d="M 165 310 L 220 270 L 265 240 L 335 170" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <polygon points="345,160 320,165 340,185" fill="#ffffff"/>
+  </g>
+
+  <!-- Golden Currency Coin Emblem in Center-Bottom -->
+  <g id="coinBadge" transform="translate(256, 365)">
+    <!-- Outer Glow -->
+    <circle cx="0" cy="0" r="46" fill="#ca8a04" fill-opacity="0.4" filter="url(#subtleGlow)"/>
+    <!-- Coin Body -->
+    <circle cx="0" cy="0" r="42" fill="url(#goldGrad)" stroke="#fef08a" stroke-width="4"/>
+    <!-- Inner Rim -->
+    <circle cx="0" cy="0" r="34" fill="none" stroke="#a16207" stroke-width="2" stroke-dasharray="6,4"/>
+    <!-- Currency / Peso / Balance Symbol -->
+    <!-- Stylized '₱' / '$' / Currency symbol -->
+    <text x="0" y="15" font-family="system-ui, -apple-system, sans-serif" font-size="44" font-weight="900" text-anchor="middle" fill="#713f12">₱</text>
+  </g>
+
+  <!-- Subtle Sparkles for Transparency & Clarity -->
+  <path d="M 120 110 Q 120 125 105 125 Q 120 125 120 140 Q 120 125 135 125 Q 120 125 120 110 Z" fill="#fef08a" fill-opacity="0.9"/>
+  <path d="M 395 105 Q 395 118 382 118 Q 395 118 395 131 Q 395 118 408 118 Q 395 118 395 105 Z" fill="#6ee7b7" fill-opacity="0.9"/>
+  <path d="M 380 400 Q 380 410 370 410 Q 380 410 380 420 Q 380 410 390 410 Q 380 410 380 400 Z" fill="#fef08a" fill-opacity="0.8"/>
+</svg>
