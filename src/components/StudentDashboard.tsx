@@ -8,6 +8,7 @@ import { ExpenseDetailModal } from "./ExpenseDetailModal";
 import { JoinAnotherClassModal } from "./JoinAnotherClassModal";
 import { WebsiteCredits } from "./WebsiteCredits";
 import { Expense } from "../types";
+import { ImagePreviewExportModal } from "./ImagePreviewExportModal";
 import { 
   DollarSign, 
   Wallet, 
@@ -121,23 +122,55 @@ export const StudentDashboard: React.FC = () => {
 
   const handleExportImage = async () => {
     const element = document.getElementById("student-report-capture-area");
-    if (!element) return;
+    if (!element || !classroom || !user) return;
     setExportingImage(true);
     try {
       const canvas = await html2canvas(element, {
         scale: 2,
-        backgroundColor: "#f8fafc",
+        backgroundColor: "#ffffff",
         logging: false,
         useCORS: true,
+        windowWidth: 1200,
+        onclone: (clonedDoc) => {
+          const clonedElement = clonedDoc.getElementById("student-report-capture-area");
+          if (clonedElement) {
+            // Set fixed width so no column is compressed or clipped
+            clonedElement.style.width = "960px";
+            clonedElement.style.minWidth = "960px";
+            clonedElement.style.maxWidth = "960px";
+            clonedElement.style.padding = "36px";
+            clonedElement.style.boxSizing = "border-box";
+            clonedElement.style.overflow = "visible";
+            clonedElement.style.backgroundColor = "#ffffff";
+
+            // Remove horizontal overflow restrictions
+            const overflowDivs = clonedElement.querySelectorAll(".overflow-x-auto");
+            overflowDivs.forEach((div) => {
+              const el = div as HTMLElement;
+              el.style.overflow = "visible";
+              el.style.width = "100%";
+              el.style.minWidth = "100%";
+            });
+
+            // Make tables take full width and let all columns breathe
+            const tables = clonedElement.querySelectorAll("table");
+            tables.forEach((table) => {
+              const tbl = table as HTMLElement;
+              tbl.style.width = "100%";
+              tbl.style.minWidth = "100%";
+              tbl.style.tableLayout = "auto";
+            });
+
+            // Hide interactive action buttons from official document export
+            const noExportEls = clonedElement.querySelectorAll(".no-export, button");
+            noExportEls.forEach((btn) => {
+              (btn as HTMLElement).style.display = "none";
+            });
+          }
+        },
       });
       const imgData = canvas.toDataURL("image/png");
       setExportedImageSrc(imgData);
-      
-      // Fallback standard download trigger
-      const link = document.createElement("a");
-      link.download = `${classroom.name.replace(/\s+/g, "_")}_student_${activeTab}_statement.png`;
-      link.href = imgData;
-      link.click();
     } catch (err) {
       console.error("Failed to export student statement as image:", err);
     } finally {
@@ -449,14 +482,23 @@ export const StudentDashboard: React.FC = () => {
         </div>
 
         {/* Captured Report Block */}
-        <div id="student-report-capture-area" className="bg-slate-50 p-6 rounded-3xl border border-slate-200/60 shadow-sm space-y-6">
-          {/* Official Document Header for Image Export */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm text-left">
-            <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest block">Official Student Financial Statement</span>
-            <h2 className="text-xl font-black text-slate-950 tracking-tight">{classroom.name}</h2>
-            <p className="text-xs text-slate-500 font-semibold">
-              Student: <strong className="text-slate-900">{user.name}</strong> ({user.studentId || "N/A"}) &bull; {classroom.school} &bull; Generated: {new Date().toLocaleDateString()}
-            </p>
+        <div id="student-report-capture-area" className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-sm space-y-6">
+          {/* Printable/Exportable Document Header */}
+          <div className="border-b border-slate-100 pb-5 text-left">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest block">Official Student Financial Statement</span>
+                <h1 className="text-2xl font-black text-slate-950 tracking-tight">{classroom.name}</h1>
+                <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                  {classroom.school} &bull; {classroom.program} ({classroom.yearLevel} - Sec {classroom.section}) &bull; S.Y. {classroom.schoolYear}
+                </p>
+              </div>
+              <div className="sm:text-right bg-slate-50 sm:bg-transparent p-3 sm:p-0 rounded-2xl border sm:border-0 border-slate-100">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Student Account</span>
+                <span className="text-sm font-extrabold text-slate-900 block">{user.name}</span>
+                <span className="text-xs font-mono text-slate-500">ID: {user.studentId || "N/A"} &bull; {new Date().toLocaleDateString()}</span>
+              </div>
+            </div>
           </div>
 
           {activeTab === "contributions" && (
@@ -464,19 +506,19 @@ export const StudentDashboard: React.FC = () => {
           <div className="space-y-6">
             
             {/* Top Contribution Summary card with Cashout Eligibility */}
-            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-sm text-left space-y-6">
+            <div className="space-y-6 text-left">
               
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                 <div>
-                  <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest block">My Financial Standing</span>
-                  <h3 className="font-extrabold text-slate-950 text-lg">Personal Contributions &amp; Cashout Balance</h3>
+                  <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest block">Personal Standing</span>
+                  <h3 className="font-extrabold text-slate-950 text-base sm:text-lg">My Contributions &amp; Cashout Balance</h3>
                 </div>
                 <button
                   onClick={() => setShowCashoutModal(true)}
                   disabled={remainingAvailableCashout <= 0}
-                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-extrabold rounded-2xl transition flex items-center justify-center gap-2 shadow-md shadow-emerald-600/10 cursor-pointer self-start sm:self-center"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-extrabold rounded-xl transition flex items-center justify-center gap-2 shadow-sm cursor-pointer self-start sm:self-center"
                 >
-                  <ArrowDownToLine className="h-4 w-4" />
+                  <ArrowDownToLine className="h-3.5 w-3.5" />
                   Request Cashout Payout
                 </button>
               </div>
@@ -484,7 +526,7 @@ export const StudentDashboard: React.FC = () => {
               {/* Major Financial Grid */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* 1. Total Contributed */}
-                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/80 space-y-2">
+                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/80 space-y-1.5">
                   <div className="flex items-center justify-between text-slate-400">
                     <span className="text-[10px] font-extrabold uppercase tracking-wider">Total Contributed</span>
                     <Wallet className="h-4 w-4 text-emerald-600" />
@@ -498,7 +540,7 @@ export const StudentDashboard: React.FC = () => {
                 </div>
 
                 {/* 2. Equal Expense Share Deduction */}
-                <div className="bg-red-50/50 p-5 rounded-2xl border border-red-200/70 space-y-2">
+                <div className="bg-red-50/50 p-5 rounded-2xl border border-red-200/70 space-y-1.5">
                   <div className="flex items-center justify-between text-red-500">
                     <span className="text-[10px] font-extrabold uppercase tracking-wider">Shared Expense Deduction</span>
                     <TrendingUp className="h-4 w-4 text-red-600" />
@@ -512,7 +554,7 @@ export const StudentDashboard: React.FC = () => {
                 </div>
 
                 {/* 3. Available Net to Cash Out */}
-                <div className="bg-emerald-50/60 p-5 rounded-2xl border border-emerald-200/80 space-y-2">
+                <div className="bg-emerald-50/60 p-5 rounded-2xl border border-emerald-200/80 space-y-1.5">
                   <div className="flex items-center justify-between text-emerald-700">
                     <span className="text-[10px] font-extrabold uppercase tracking-wider">Available to Cashout</span>
                     <ArrowDownToLine className="h-4 w-4 text-emerald-600" />
@@ -542,35 +584,35 @@ export const StudentDashboard: React.FC = () => {
 
             {/* General Stats Boxes */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
-              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/70 space-y-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Class Funds Collected</span>
                 <span className="text-xl font-extrabold text-emerald-600">₱{totalClassCollected.toLocaleString()}</span>
               </div>
-              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/70 space-y-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Class Funds Expended</span>
                 <span className="text-xl font-extrabold text-red-600">₱{totalClassExpenses.toLocaleString()}</span>
               </div>
-              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/70 space-y-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Class Vault Net Balance</span>
                 <span className="text-xl font-extrabold text-slate-950">₱{classBalance.toLocaleString()}</span>
               </div>
             </div>
 
             {/* Personal Payment History list */}
-            <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4 text-left">
-              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+            <div className="space-y-3 text-left">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
                 <h3 className="font-extrabold text-slate-950 text-base">My Contribution History</h3>
                 <span className="text-xs text-slate-400 font-semibold">{myPayments.length} logs saved</span>
               </div>
 
-              <div className="overflow-x-auto w-full rounded-2xl border border-slate-100">
+              <div className="overflow-x-auto w-full rounded-2xl border border-slate-200/80">
                 <table className="w-full text-sm min-w-[500px]">
-                  <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold text-[10px] uppercase tracking-wider">
+                  <thead className="bg-slate-50 border-b border-slate-200/80 text-slate-500 font-bold text-[10px] uppercase tracking-wider">
                     <tr>
-                      <th className="px-5 py-3 text-left">Date</th>
-                      <th className="px-5 py-3 text-left">Method</th>
-                      <th className="px-5 py-3 text-left">Reference Number</th>
-                      <th className="px-5 py-3 text-right">Amount</th>
+                      <th className="px-5 py-3.5 text-left">Date</th>
+                      <th className="px-5 py-3.5 text-left">Payment Method</th>
+                      <th className="px-5 py-3.5 text-left">Reference Number</th>
+                      <th className="px-5 py-3.5 text-right">Amount</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -608,27 +650,27 @@ export const StudentDashboard: React.FC = () => {
 
         {activeTab === "records" && (
           /* General Classroom Funds transparency log */
-          <div className="space-y-6">
+          <div className="space-y-6 text-left">
             
             {/* Aggregate Dashboard overview */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
-              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/70 space-y-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Total Collected (Class)</span>
                 <span className="text-xl font-extrabold text-emerald-600">₱{totalClassCollected.toLocaleString()}</span>
               </div>
-              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/70 space-y-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Total Expenses (Class)</span>
                 <span className="text-xl font-extrabold text-red-600">₱{totalClassExpenses.toLocaleString()}</span>
               </div>
-              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/70 space-y-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Available Fund Balance</span>
                 <span className="text-xl font-extrabold text-slate-950">₱{classBalance.toLocaleString()}</span>
               </div>
             </div>
 
             {/* Expenses statement list */}
-            <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4 text-left">
-              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+            <div className="space-y-3">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
                 <div>
                   <h3 className="font-extrabold text-slate-950 text-base">Classroom Fund Expenses</h3>
                   <p className="text-slate-400 text-xs">Verify class purchases and transparency records.</p>
@@ -636,16 +678,16 @@ export const StudentDashboard: React.FC = () => {
                 <span className="text-xs text-slate-400 font-semibold">{expenses.length} records</span>
               </div>
 
-              <div className="overflow-x-auto w-full rounded-2xl border border-slate-100">
+              <div className="overflow-x-auto w-full rounded-2xl border border-slate-200/80">
                 <table className="w-full text-sm min-w-[550px]">
-                  <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold text-[10px] uppercase tracking-wider">
+                  <thead className="bg-slate-50 border-b border-slate-200/80 text-slate-500 font-bold text-[10px] uppercase tracking-wider">
                     <tr>
-                      <th className="px-5 py-3 text-left">Date</th>
-                      <th className="px-5 py-3 text-left">Item / Description</th>
-                      <th className="px-5 py-3 text-left">Category</th>
-                      <th className="px-5 py-3 text-left">Recipient</th>
-                      <th className="px-5 py-3 text-right">Total Amount</th>
-                      <th className="px-5 py-3 text-center">Receipt & Details</th>
+                      <th className="px-5 py-3.5 text-left">Date</th>
+                      <th className="px-5 py-3.5 text-left">Item / Description</th>
+                      <th className="px-5 py-3.5 text-left">Category</th>
+                      <th className="px-5 py-3.5 text-left">Recipient</th>
+                      <th className="px-5 py-3.5 text-right">Total Amount</th>
+                      <th className="px-5 py-3.5 text-center no-export">Receipt & Details</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -667,7 +709,7 @@ export const StudentDashboard: React.FC = () => {
                         </td>
                         <td className="px-5 py-3.5 font-semibold text-slate-600">{e.paidTo || "—"}</td>
                         <td className="px-5 py-3.5 text-right font-black text-red-600">-₱{e.amount.toLocaleString()}</td>
-                        <td className="px-5 py-3.5 text-center">
+                        <td className="px-5 py-3.5 text-center no-export">
                           <button
                             type="button"
                             onClick={(ev) => {
@@ -708,18 +750,18 @@ export const StudentDashboard: React.FC = () => {
         {activeTab === "cashouts" && (
           /* Cashout Claims History Tab */
           <div className="space-y-6 text-left">
-            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-sm space-y-6">
+            <div className="space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                 <div>
                   <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest block">Disbursement History</span>
-                  <h3 className="font-extrabold text-slate-950 text-lg">My Cashout Claims</h3>
+                  <h3 className="font-extrabold text-slate-950 text-base sm:text-lg">My Cashout Claims</h3>
                 </div>
                 <button
                   onClick={() => setShowCashoutModal(true)}
                   disabled={remainingAvailableCashout <= 0}
-                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-extrabold rounded-2xl transition flex items-center justify-center gap-2 shadow-md shadow-emerald-600/10 cursor-pointer"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-extrabold rounded-xl transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"
                 >
-                  <ArrowDownToLine className="h-4 w-4" />
+                  <ArrowDownToLine className="h-3.5 w-3.5" />
                   New Cashout Request
                 </button>
               </div>
@@ -741,16 +783,16 @@ export const StudentDashboard: React.FC = () => {
               </div>
 
               {/* Cashout Requests Ledger */}
-              <div className="overflow-x-auto w-full rounded-2xl border border-slate-100">
+              <div className="overflow-x-auto w-full rounded-2xl border border-slate-200/80">
                 <table className="w-full text-xs min-w-[600px]">
-                  <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider">
+                  <thead className="bg-slate-50 border-b border-slate-200/80 text-slate-500 font-bold uppercase tracking-wider">
                     <tr>
-                      <th className="px-5 py-3 text-left">Date Requested</th>
-                      <th className="px-5 py-3 text-left">Payout Method</th>
-                      <th className="px-5 py-3 text-left">Account Details</th>
-                      <th className="px-5 py-3 text-right">Claim Amount</th>
-                      <th className="px-5 py-3 text-center">Status</th>
-                      <th className="px-5 py-3 text-left">Remarks</th>
+                      <th className="px-5 py-3.5 text-left">Date Requested</th>
+                      <th className="px-5 py-3.5 text-left">Payout Method</th>
+                      <th className="px-5 py-3.5 text-left">Account Details</th>
+                      <th className="px-5 py-3.5 text-right">Claim Amount</th>
+                      <th className="px-5 py-3.5 text-center">Status</th>
+                      <th className="px-5 py-3.5 text-left">Remarks</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -805,76 +847,33 @@ export const StudentDashboard: React.FC = () => {
             </div>
           </div>
         )}
+
+          {/* Printable Document Certification & Software Stamp */}
+          <div className="pt-6 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-500 text-left">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-emerald-600" />
+              <span className="font-bold text-slate-800">Certified Official Student Statement</span>
+              <span className="text-slate-300">&bull;</span>
+              <span>Audited &amp; Synchronized via ClassFund Manager</span>
+            </div>
+            <div className="text-right text-slate-400 font-mono text-[10px]">
+              System Architecture: Darryl Jay Castillo (SHIRO) &bull; Verified Build
+            </div>
+          </div>
         </div>
 
         {/* Professional Footer Credits */}
         <WebsiteCredits onOpenTerms={() => setShowTerms(true)} />
       </main>
 
-      {/* Resilient Sandbox Image Export Help Dialog */}
-      {exportedImageSrc && (
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-50 p-4"
-        >
-          <motion.div 
-            initial={{ scale: 0.95, y: 20 }}
-            animate={{ scale: 1, y: 0 }}
-            className="bg-white rounded-3xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl border border-slate-200/80 overflow-hidden text-left"
-          >
-            {/* Header */}
-            <div className="bg-slate-900 text-white p-5 flex justify-between items-center shrink-0">
-              <div>
-                <h3 className="font-extrabold text-sm sm:text-base tracking-tight">Statement Image Generated</h3>
-                <p className="text-[10px] sm:text-xs text-slate-400">Your statement was successfully compiled to a digital image.</p>
-              </div>
-              <button 
-                onClick={() => setExportedImageSrc(null)}
-                className="bg-slate-800 hover:bg-slate-700 p-2 rounded-xl text-slate-400 hover:text-white transition cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Content & Sandbox Warning */}
-            <div className="p-6 overflow-y-auto space-y-4">
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-3 text-left">
-                <span className="text-lg">💡</span>
-                <p className="text-[11px] text-amber-900 leading-relaxed font-semibold">
-                  <strong>Sandbox Environment Safe Mode:</strong> If the automatic file download was blocked by your browser&apos;s sandboxed preview constraints, you can easily save it by **right-clicking (or holding down on mobile)** the image below and selecting <strong className="underline">Save Image As...</strong>.
-                </p>
-              </div>
-
-              {/* Generated Image Base64 Frame */}
-              <div className="border border-slate-200/80 rounded-2xl overflow-hidden shadow-inner bg-slate-100 p-3 flex justify-center items-center">
-                <img 
-                  src={exportedImageSrc} 
-                  alt="Financial Report Preview" 
-                  className="max-w-full h-auto rounded-xl shadow-md border border-slate-200"
-                />
-              </div>
-            </div>
-
-            {/* Footer buttons */}
-            <div className="bg-slate-50 p-4 border-t border-slate-200/60 flex justify-end gap-2 shrink-0">
-              <a 
-                href={exportedImageSrc}
-                download={`${classroom.name.replace(/\s+/g, "_")}_student_${activeTab}_statement.png`}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
-              >
-                <FileText className="h-3.5 w-3.5" /> Force Download
-              </a>
-              <button 
-                onClick={() => setExportedImageSrc(null)}
-                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition"
-              >
-                Close Preview
-              </button>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
+      {/* Image Export Preview Modal */}
+      <ImagePreviewExportModal
+        isOpen={!!exportedImageSrc}
+        onClose={() => setExportedImageSrc(null)}
+        imageSrc={exportedImageSrc}
+        title="Student Financial Statement Preview"
+        fileName={`${classroom.name.replace(/\s+/g, "_")}_${user.name.replace(/\s+/g, "_")}_${activeTab}_statement.png`}
+      />
 
       {/* Onboarding Tour for Students */}
       {showTour && (

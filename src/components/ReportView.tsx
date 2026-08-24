@@ -3,6 +3,7 @@ import { useApp } from "../context/AppContext";
 import { FileText, Download, TrendingUp, Users, DollarSign, Wallet, RefreshCw, CheckCircle2, X } from "lucide-react";
 import html2canvas from "html2canvas-pro";
 import { motion } from "motion/react";
+import { ImagePreviewExportModal } from "./ImagePreviewExportModal";
 
 export const ReportView: React.FC = () => {
   const { classroom, members, payments, expenses } = useApp();
@@ -108,7 +109,7 @@ export const ReportView: React.FC = () => {
 
   const handleExportImage = async () => {
     const reportElement = document.getElementById("reports-view-container");
-    if (!reportElement) return;
+    if (!reportElement || !classroom) return;
     setExportingImage(true);
     try {
       const canvas = await html2canvas(reportElement, {
@@ -116,15 +117,46 @@ export const ReportView: React.FC = () => {
         backgroundColor: "#ffffff",
         logging: false,
         useCORS: true,
+        windowWidth: 1200,
+        onclone: (clonedDoc) => {
+          const clonedElement = clonedDoc.getElementById("reports-view-container");
+          if (clonedElement) {
+            clonedElement.style.width = "960px";
+            clonedElement.style.minWidth = "960px";
+            clonedElement.style.maxWidth = "960px";
+            clonedElement.style.boxSizing = "border-box";
+            clonedElement.style.overflow = "visible";
+            clonedElement.style.padding = "36px";
+            clonedElement.style.backgroundColor = "#ffffff";
+
+            // Remove overflow scroll limits so tables expand completely
+            const scrollContainers = clonedElement.querySelectorAll(".overflow-x-auto");
+            scrollContainers.forEach((container) => {
+              const el = container as HTMLElement;
+              el.style.overflow = "visible";
+              el.style.width = "100%";
+              el.style.minWidth = "100%";
+            });
+
+            // Ensure table fills width cleanly
+            const tables = clonedElement.querySelectorAll("table");
+            tables.forEach((table) => {
+              const tbl = table as HTMLElement;
+              tbl.style.width = "100%";
+              tbl.style.minWidth = "100%";
+              tbl.style.tableLayout = "auto";
+            });
+
+            // Hide non-export buttons
+            const noExportEls = clonedElement.querySelectorAll(".no-export, button");
+            noExportEls.forEach((btn) => {
+              (btn as HTMLElement).style.display = "none";
+            });
+          }
+        },
       });
       const imgData = canvas.toDataURL("image/png");
       setExportedImageSrc(imgData);
-
-      // Fallback automatic click download
-      const link = document.createElement("a");
-      link.download = `${classroom.name.replace(/\s+/g, "_")}_${reportType}_report.png`;
-      link.href = imgData;
-      link.click();
     } catch (err) {
       console.error("Failed to export report as image:", err);
     } finally {
@@ -381,70 +413,14 @@ export const ReportView: React.FC = () => {
         </div>
       </div>
 
-      {/* Resilient Sandbox Image Export Help Dialog */}
-      {exportedImageSrc && (
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-50 p-4"
-        >
-          <motion.div 
-            initial={{ scale: 0.95, y: 20 }}
-            animate={{ scale: 1, y: 0 }}
-            className="bg-white rounded-3xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl border border-slate-200/80 overflow-hidden text-left"
-          >
-            {/* Header */}
-            <div className="bg-slate-900 text-white p-5 flex justify-between items-center shrink-0">
-              <div>
-                <h3 className="font-extrabold text-sm sm:text-base tracking-tight">Report Image Generated</h3>
-                <p className="text-[10px] sm:text-xs text-slate-400">Your report was successfully compiled to a digital image.</p>
-              </div>
-              <button 
-                onClick={() => setExportedImageSrc(null)}
-                className="bg-slate-800 hover:bg-slate-700 p-2 rounded-xl text-slate-400 hover:text-white transition cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Content & Sandbox Warning */}
-            <div className="p-6 overflow-y-auto space-y-4">
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-3 text-left">
-                <span className="text-lg">💡</span>
-                <p className="text-[11px] text-amber-900 leading-relaxed font-semibold">
-                  <strong>Sandbox Environment Safe Mode:</strong> If the automatic file download was blocked by your browser&apos;s sandboxed preview constraints, you can easily save it by **right-clicking (or holding down on mobile)** the image below and selecting <strong className="underline">Save Image As...</strong>.
-                </p>
-              </div>
-
-              {/* Generated Image Base64 Frame */}
-              <div className="border border-slate-200/80 rounded-2xl overflow-hidden shadow-inner bg-slate-100 p-3 flex justify-center items-center">
-                <img 
-                  src={exportedImageSrc} 
-                  alt="Financial Report Preview" 
-                  className="max-w-full h-auto rounded-xl shadow-md border border-slate-200"
-                />
-              </div>
-            </div>
-
-            {/* Footer buttons */}
-            <div className="bg-slate-50 p-4 border-t border-slate-200/60 flex justify-end gap-2 shrink-0">
-              <a 
-                href={exportedImageSrc}
-                download={`${classroom.name.replace(/\s+/g, "_")}_${reportType}_report.png`}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
-              >
-                <FileText className="h-3.5 w-3.5" /> Force Download
-              </a>
-              <button 
-                onClick={() => setExportedImageSrc(null)}
-                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition"
-              >
-                Close Preview
-              </button>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
+      {/* Image Export Preview Modal */}
+      <ImagePreviewExportModal
+        isOpen={!!exportedImageSrc}
+        onClose={() => setExportedImageSrc(null)}
+        imageSrc={exportedImageSrc}
+        title="Classroom Financial Statement Preview"
+        fileName={`${classroom.name.replace(/\s+/g, "_")}_${reportType}_report.png`}
+      />
     </div>
   );
 };
