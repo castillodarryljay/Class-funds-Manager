@@ -366,6 +366,19 @@ export const ReportView: React.FC = () => {
             </table>
           </div>
         )}
+
+        {/* Printable Document Certification & Software Stamp */}
+        <div className="pt-6 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-500 text-left">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-emerald-600" />
+            <span className="font-bold text-slate-800">Certified Official Ledger</span>
+            <span className="text-slate-300">&bull;</span>
+            <span>Audited &amp; Synchronized via ClassFund Manager</span>
+          </div>
+          <div className="text-right text-slate-400 font-mono text-[10px]">
+            System Architecture: Darryl Jay Castillo (SHIRO) &bull; Verified Build
+          </div>
+        </div>
       </div>
 
       {/* Resilient Sandbox Image Export Help Dialog */}

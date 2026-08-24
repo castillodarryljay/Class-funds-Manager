@@ -6,6 +6,8 @@ import { Sparkles, User, GraduationCap, CheckCircle, ShieldCheck, Mail, AlertCir
 import { AppLogo } from "./AppLogo";
 import { Classroom } from "../types";
 import { StudentPendingApproval } from "./StudentPendingApproval";
+import { WebsiteCredits } from "./WebsiteCredits";
+import { TermsModal } from "./TermsModal";
 
 interface JoinClassroomProps {
   inviteCode: string;
@@ -26,6 +28,7 @@ export const JoinClassroom: React.FC<JoinClassroomProps> = ({ inviteCode, onJoin
   const [contact, setContact] = useState(user?.contact || "");
   const [submitting, setSubmitting] = useState(false);
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
 
   // Look up classroom metadata from invite code
   useEffect(() => {
@@ -352,13 +355,13 @@ export const JoinClassroom: React.FC<JoinClassroomProps> = ({ inviteCode, onJoin
           )}
         </div>
         
-        {/* Footer */}
-        <div className="p-4 bg-slate-50 border-t border-slate-100 text-center">
-          <p className="text-[11px] text-slate-400 font-medium tracking-wide">
-            Powered by <span className="font-semibold text-slate-600">ClassFund Manager</span> &bull; Designed by <span className="font-semibold text-slate-600">Darryl jay Castillo (SHIRO)</span>
-          </p>
+        {/* Professional Credits & Terms */}
+        <div className="p-3 bg-slate-50 border-t border-slate-100">
+          <WebsiteCredits variant="compact" onOpenTerms={() => setShowTerms(true)} />
         </div>
       </div>
+
+      <TermsModal isOpen={showTerms} onClose={() => setShowTerms(false)} />
     </div>
   );
 };

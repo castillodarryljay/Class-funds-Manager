@@ -1,6 +1,6 @@
 {
   "name": "Class Funds Management System",
-  "description": "A secure and transparent classroom fund management system with role-based dashboards, invitation links, payment logs, and financial reports.",
+  "description": "An enterprise-grade classroom financial transparency and bookkeeping ledger with real-time Firestore persistence, equal-share expense distribution, photo receipt inspection, cashout claims, and clearance-ready statements.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

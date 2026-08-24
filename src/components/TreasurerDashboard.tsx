@@ -6,6 +6,7 @@ import { TermsModal } from "./TermsModal";
 import { PaymentModal } from "./PaymentModal";
 import { ExpenseModal } from "./ExpenseModal";
 import { ExpenseDetailModal } from "./ExpenseDetailModal";
+import { WebsiteCredits } from "./WebsiteCredits";
 import { ReportView } from "./ReportView";
 import { JoinRequestsManager } from "./JoinRequestsManager";
 import { CashoutsManager } from "./CashoutsManager";
@@ -1558,14 +1559,8 @@ export const TreasurerDashboard: React.FC<TreasurerDashboardProps> = ({ onCreate
           </div>
         )}
 
-        {/* Footer Credits */}
-        <footer className="mt-12 border-t border-slate-200/60 pt-6 pb-4 text-center text-xs text-slate-400">
-          <p className="tracking-wide">
-            Powered by <span className="font-semibold text-slate-600">ClassFund Manager</span>
-            <span className="mx-2 text-slate-300">|</span>
-            Designed by <span className="font-bold text-emerald-600">Darryl jay Castillo (SHIRO)</span>
-          </p>
-        </footer>
+        {/* Professional Footer Credits */}
+        <WebsiteCredits onOpenTerms={() => setShowTerms(true)} />
       </main>
 
       {/* --- MODAL RENDERING WINDOWS --- */}
