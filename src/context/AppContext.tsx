@@ -415,7 +415,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     } catch (err: any) {
       console.error("Google login error:", err);
-      setError(err.message || "Failed to authenticate with Google.");
+      if (err.code === "auth/unauthorized-domain" || err.message?.includes("unauthorized-domain")) {
+        const currentDomain = window.location.hostname;
+        setError(`UNAUTHORIZED_DOMAIN:${currentDomain}`);
+      } else {
+        setError(err.message || "Failed to authenticate with Google.");
+      }
     } finally {
       setLoading(false);
     }

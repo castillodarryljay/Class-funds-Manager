@@ -1,18 +1,30 @@
 import React, { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
-import { Shield, Users, FileText, CheckCircle2, Download, FileLock2 } from "lucide-react";
+import { Shield, Users, FileText, CheckCircle2, Download, ExternalLink, Copy, Check, AlertTriangle, Sparkles } from "lucide-react";
 import { AppLogo } from "./AppLogo";
 import { TermsModal } from "./TermsModal";
 import { WebsiteCredits } from "./WebsiteCredits";
 
 export const LandingPage: React.FC = () => {
-  const { signInGoogle, error, setError } = useApp();
+  const { signInGoogle, loginSandboxUser, error, setError } = useApp();
   const [selectedRole, setSelectedRole] = useState<"treasurer" | "student">(() => {
     return (localStorage.getItem("preferred_login_role") as "treasurer" | "student") || "treasurer";
   });
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState<boolean>(false);
   const [showTerms, setShowTerms] = useState<boolean>(false);
+  const [copiedDomain, setCopiedDomain] = useState(false);
+
+  const isUnauthorizedDomain = error?.startsWith("UNAUTHORIZED_DOMAIN:");
+  const unauthorizedHost = isUnauthorizedDomain ? error.replace("UNAUTHORIZED_DOMAIN:", "") : (typeof window !== "undefined" ? window.location.hostname : "");
+
+  const handleCopyHost = () => {
+    if (unauthorizedHost) {
+      navigator.clipboard.writeText(unauthorizedHost);
+      setCopiedDomain(true);
+      setTimeout(() => setCopiedDomain(false), 2000);
+    }
+  };
 
   useEffect(() => {
     const handleBeforeInstall = (e: Event) => {
@@ -177,12 +189,75 @@ export const LandingPage: React.FC = () => {
               </p>
             </div>
 
-            {error && (
+            {isUnauthorizedDomain ? (
+              <div className="bg-amber-50 border border-amber-200/90 rounded-2xl p-4 mb-6 text-left space-y-3 relative shadow-xs animate-fade-in">
+                <button
+                  onClick={() => setError(null)}
+                  className="absolute right-3 top-3 text-amber-500 hover:text-amber-800 font-bold text-sm"
+                  title="Dismiss"
+                >
+                  ✕
+                </button>
+
+                <div className="flex items-center gap-2 text-amber-800 font-bold text-xs">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                  <span>Domain Authorization Required</span>
+                </div>
+
+                <p className="text-[11px] text-amber-900/90 leading-relaxed">
+                  Firebase Authentication has blocked login because this deployed domain has not been added to your authorized domains list yet.
+                </p>
+
+                {/* Domain Copy Box */}
+                <div className="bg-white p-2.5 rounded-xl border border-amber-200 flex items-center justify-between gap-2">
+                  <span className="font-mono text-xs text-slate-800 font-semibold truncate select-all">
+                    {unauthorizedHost}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCopyHost}
+                    className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 text-[10px] font-bold rounded-lg transition flex items-center gap-1 shrink-0 cursor-pointer"
+                  >
+                    {copiedDomain ? (
+                      <>
+                        <Check className="h-3 w-3 text-emerald-600" />
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3 w-3" />
+                        <span>Copy Domain</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Direct Firebase Link & Steps */}
+                <div className="pt-1 text-[11px] text-slate-600 space-y-1.5">
+                  <p className="font-semibold text-slate-800">How to fix in 30 seconds:</p>
+                  <ol className="list-decimal list-inside space-y-0.5 text-[10.5px] text-slate-600 pl-0.5">
+                    <li>Open <strong>Firebase Console &rarr; Authentication &rarr; Settings</strong>.</li>
+                    <li>Click <strong>Authorized domains &rarr; Add domain</strong>.</li>
+                    <li>Paste <code className="bg-slate-100 px-1 rounded font-mono text-[10px]">{unauthorizedHost}</code> and click <strong>Save</strong>.</li>
+                  </ol>
+
+                  <a
+                    href="https://console.firebase.google.com/project/gen-lang-client-0192880941/authentication/settings"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[11px] font-bold shadow-xs transition"
+                  >
+                    <span>Open Firebase Authorized Domains Settings</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              </div>
+            ) : error ? (
               <div className="bg-red-50 text-red-700 text-xs p-3 rounded-xl mb-6 text-left font-medium border border-red-100 relative">
                 <span>{error}</span>
                 <button onClick={() => setError(null)} className="absolute right-3 top-3 text-red-400 hover:text-red-700 font-bold">×</button>
               </div>
-            )}
+            ) : null}
 
             <div className="space-y-4">
               {/* Google Sign In */}
