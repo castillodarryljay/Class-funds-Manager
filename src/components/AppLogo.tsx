@@ -1,5 +1,5 @@
 import React from "react";
-import { LOGO_BASE64 } from "../assets/logoBase64";
+import logoUrl from "../assets/logo.png";
 
 interface AppLogoProps {
   className?: string;
@@ -31,7 +31,7 @@ export const AppLogo: React.FC<AppLogoProps> = ({
     <div className={`inline-flex items-center gap-3 select-none ${className}`}>
       <div className={`relative shrink-0 flex items-center justify-center ${config.css}`}>
         <img
-          src={LOGO_BASE64}
+          src={logoUrl}
           alt="Class Funds Logo"
           width={config.px}
           height={config.px}
